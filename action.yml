@@ -1,0 +1,22 @@
+name: 'DOC ENV VARS'
+description: 'Doc env vars from NODE/NEXT project and save as a env.json file'
+inputs:
+  folders:
+    description: 'Folders to doc'
+    required: true
+    default: 'src/ source/ doc/ node_modules/'
+  saveAt:
+    description: 'save At'
+    required: true
+    default: 'doc/'
+  fileName:
+    description: 'File name'
+    required: true
+    default: 'env.json'
+  files:
+    description: 'Files to doc'
+    required: true
+    default: '*.ts *.js *env.json env.json'
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
