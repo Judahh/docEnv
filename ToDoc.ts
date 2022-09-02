@@ -213,9 +213,10 @@ export {
 `;
 
 class Checker {
-  public static group(string: string) {
+  public static group(string: string, removeOuter?: boolean): string | undefined {
     let brackets = "[]{}()<>";
     let stack: Array<number> = [];
+    let start = -1;
 
     for (let index = 0; index < string.length; index++) {
       const bracket = string[index];
@@ -226,33 +227,44 @@ class Checker {
       }
 
       if (bracketsIndex % 2 === 0) {
+        if(start === -1)
+          start = index;
         stack.push(bracketsIndex + 1);
       } else if (stack.pop() !== bracketsIndex) {
         return undefined;
       }
       if (stack.length === 0) {
-        const newString = string.slice(0, index + 1);
+        if(start === -1)
+          start = 0;
+        let newString = string.slice(0, index + 1);
+        const match = newString.match(/[\[\]\{\}\(\)\<\>]/g);
+        newString = removeOuter && match != undefined ? newString.slice(start + 1, index - 1) : newString;
         // console.log(newString);
         return newString;
       }
     }
     if (stack.length === 0) {
+      if(start === -1)
+          start = 0;
+      const match = string.match(/[\[\]\{\}\(\)\<\>]/g);
+        string = removeOuter && match != undefined ? string.slice(start + 1, string.length - 2) : string;
       // console.log(string);
       return string;
     }
     return undefined;
   }
 
-  public static checkOptions(string: string) {
-    let elements = "&|?:,;";
+  public static checkOptions(string?: string): any {
+    let elements = "&|?:,;[]{}()<>";
     let min = Infinity;
     for (let index = 0; index < elements.length; index++) {
       const element = elements[index];
-      if (string.indexOf(element) !== -1) {
+      if (string?.indexOf?.(element) !== -1) {
         if (min > index || min == Infinity) min = index;
       }
     }
-    if (min == Infinity) return string;
+    if (min == Infinity || string == undefined) return string;
+    if (min > 5) return Checker.checkOptions(Checker.group(string, true));
     if (min < 2) return Checker.checkOption(string);
     return Checker.checkTernary(string);
   }
