@@ -59,13 +59,13 @@ test('Test Ternary Large', async () => {
   });
 });
 
-// test('Test Options Basic', async () => {
-//   let options = Checker.checkOptions('a || b || c || d && e');
-//   expect(options).toMatchObject({ or: ['a', 'b', 'c', { and: ['d', 'e'] }] });
-//   options = Checker.checkOptions('a || b || c || d || e');
-//   expect(options).toMatchObject({ or: ['a', 'b', 'c', 'd', 'e'] });
-//   options = Checker.checkOptions('a && b && c && d || e');
-//   expect(options).toMatchObject({ or: [{ and: ['a', 'b', 'c', 'd'] }, 'e'] });
-//   options = Checker.checkOptions('a && b && c && d && e');
-//   expect(options).toMatchObject({ and: ['a', 'b', 'c', 'd', 'e'] });
-// });
+test('Test Options Basic', async () => {
+  let options = Checker.checkOptions('a || b || c || d && e');
+  expect(options).toMatchObject({ or: ['a', 'b', 'c', { and: ['d', 'e'] }] });
+  options = Checker.checkOptions('a || b || c || d || e');
+  expect(options).toMatchObject({ or: ['a', 'b', 'c', 'd', 'e'] });
+  options = Checker.checkOptions('a && b && c && d || e');
+  expect(options).toMatchObject({ or: [{ and: ['a', 'b', 'c', 'd'] }, 'e'] });
+  options = Checker.checkOptions('a && b && c && d && e');
+  expect(options).toMatchObject({ and: ['a', 'b', 'c', 'd', 'e'] });
+});
