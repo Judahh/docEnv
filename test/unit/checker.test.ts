@@ -26,24 +26,12 @@ test('Test Ternary Basic', async () => {
   expect(ternary).toMatchObject({ if: 'a', then: 'b', else: 'c' });
 });
 
-test('Test Ternary Large', async () => {
-  let ternary = Checker.checkOptions('a ? b ? c : d : e');
+test('Test Ternary Large With Groups', async () => {
+  let ternary = Checker.checkOptions('a ? (b ? c : d) : e;');
   expect(ternary).toMatchObject({
     if: 'a',
     then: { if: 'b', then: 'c', else: 'd' },
     else: 'e',
-  });
-  ternary = Checker.checkOptions('a ? (b ? c : d) : e;');
-  expect(ternary).toMatchObject({
-    if: 'a',
-    then: { if: 'b', then: 'c', else: 'd' },
-    else: 'e',
-  });
-  ternary = Checker.checkOptions(' a ? b : c ? d : e');
-  expect(ternary).toMatchObject({
-    if: 'a',
-    then: 'b',
-    else: { if: 'c', then: 'd', else: 'e' },
   });
   ternary = Checker.checkOptions('(a ? b : c) ? d : e');
   expect(ternary).toMatchObject({
@@ -52,6 +40,21 @@ test('Test Ternary Large', async () => {
     else: 'e',
   });
   ternary = Checker.checkOptions('a ? b : (c ? d : e)');
+  expect(ternary).toMatchObject({
+    if: 'a',
+    then: 'b',
+    else: { if: 'c', then: 'd', else: 'e' },
+  });
+});
+
+test('Test Ternary Large Without Groups', async () => {
+  let ternary = Checker.checkOptions('a ? b ? c : d : e');
+  expect(ternary).toMatchObject({
+    if: 'a',
+    then: { if: 'b', then: 'c', else: 'd' },
+    else: 'e',
+  });
+  ternary = Checker.checkOptions(' a ? b : c ? d : e');
   expect(ternary).toMatchObject({
     if: 'a',
     then: 'b',
