@@ -1,4 +1,4 @@
-import { Checker } from '../../source/checker';
+// import { Extractor } from '../../source/extractor';
 
 const file = `
 import { PersistenceInfo } from 'flexiblepersistence';
@@ -197,3 +197,7 @@ export {
   getReadDatabase,
 };
 `;
+
+test('Test Ternary Large Without Groups', async () => {
+  expect(file.length).toBe(6812);
+});

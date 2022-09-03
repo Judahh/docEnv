@@ -1,4 +1,4 @@
-class Finder {
+class Parser {
   public static splitLines(file: string): Array<string> {
     return file
       .replace(/(?:\r\n|\r|\n)/g, ' ')
@@ -24,7 +24,7 @@ class Finder {
   }
 
   public static getSpecialVariables(file: string) {
-    const splittedLines = Finder.splitLines(file);
+    const splittedLines = Parser.splitLines(file);
     const all = {};
 
     for (const line of splittedLines) {
@@ -90,4 +90,4 @@ class Finder {
   }
 }
 
-export { Finder };
+export { Parser };
