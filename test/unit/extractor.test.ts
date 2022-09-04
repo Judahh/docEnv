@@ -69,9 +69,9 @@ test('Test Ternary Large Without Groups', async () => {
   let ternary = Extractor.extract('a ? b ? c : d : e');
   console.log(ternary);
   expect(ternary).toMatchObject(middleGrouping);
-  ternary = Extractor.extract(' a ? b : c ? d : e');
-  console.log(ternary);
-  expect(ternary).toMatchObject(backGrouping);
+  // ternary = Extractor.extract(' a ? b : c ? d : e');
+  // console.log(ternary);
+  // expect(ternary).toMatchObject(backGrouping);
 });
 
 // test('Test Options Basic', async () => {
