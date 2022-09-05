@@ -1,3 +1,5 @@
+import { Extractor } from './extractor';
+
 class Parser {
   public static splitLines(file: string): Array<string> {
     return file
@@ -54,6 +56,8 @@ class Parser {
       const defaultValuesStr = defaultValuesStrArr.join('=');
       console.log('defaultValuesStr', defaultValuesStr);
 
+      const defaultValues = Extractor.extract(defaultValuesStr);
+
       // let defaultValuesStr = defaultValuesStrArr.join("=").replace(/process\.env\.([\w]+)\?*\.*[\w]+\(*\)* *[<>=]=* *'*"*`*[\w]+`*"*'*/gm, (a,e1)=>e1);
       // const format = defaultValuesStr
       //   .replace(
@@ -78,10 +82,10 @@ class Parser {
       const splitted = {
         variable,
         envVars,
-        line,
+        // line,
         // required,
-        // defaultValues,
-        defaultValuesStr,
+        defaultValues,
+        // defaultValuesStr,
       };
       all[variable] = splitted;
     }

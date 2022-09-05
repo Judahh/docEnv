@@ -1,4 +1,4 @@
-// import { Extractor } from '../../source/extractor';
+import { Parser } from '../../source/parser';
 
 const file = `
 import { PersistenceInfo } from 'flexiblepersistence';
@@ -198,6 +198,8 @@ export {
 };
 `;
 
-test('Test Ternary Large Without Groups', async () => {
+test('Test File', async () => {
   expect(file.length).toBe(6812);
+  const vars = Parser.getSpecialVariables(file);
+  console.log(vars);
 });
