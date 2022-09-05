@@ -14,13 +14,8 @@ class Extractor {
   public static brackets = Extractor.openBrackets + Extractor.closeBrackets;
   public static bracketsRegex = /[\[\]\{\}\(\)\<\>]/g;
 
-  public static getPosition(
-    receivedString: string,
-    subString: string,
-    index = 0
-  ) {
-    const string = '' + receivedString;
-    return string.split(subString, index).join(subString).length;
+  public static getPosition(matches: Array<number>, index = 0) {
+    return matches[index];
   }
 
   public static bundler(
@@ -42,14 +37,36 @@ class Extractor {
     const starts: Array<number> = [];
     const ends: Array<number> = [];
     const match: Array<string> = [];
+    // if (hideTypes)
+    //   console.log(
+    //     'bundler hideTypes:',
+    //     hideTypes,
+    //     '-',
+    //     startTypes,
+    //     '-',
+    //     endTypes
+    //   );
 
     for (let index = 0; index < string.length; index++) {
       const element = string[index];
       const startIndex = startTypes.indexOf(element);
       const endIndex = endTypes.indexOf(element);
       const hideIndex = hideTypes?.indexOf?.(element);
-
-      if (startIndex === -1 && endIndex === -1) continue;
+      // if (hideTypes)
+      //   console.log(
+      //     'element:',
+      //     element,
+      //     '-',
+      //     index,
+      //     '-',
+      //     hideIndex,
+      //     '-',
+      //     hideFunction,
+      //     '-',
+      //     hideTypes,
+      //     '-',
+      //     string
+      //   );
 
       if (
         hideIndex != undefined &&
@@ -57,12 +74,32 @@ class Extractor {
         hideIndex > -1
       ) {
         const pg = string.substring(index);
-        console.log('extractTernary bundler pg:', pg);
+        // console.log(
+        //   'hide bundler pg:',
+        //   pg,
+        //   '-',
+        //   string,
+        //   '-',
+        //   index,
+        //   '-',
+        //   string.length
+        // );
         const g = hideFunction(pg);
-        console.log('extractTernary bundler g:', g);
+        // console.log(
+        //   'hide bundler g:',
+        //   g,
+        //   '-',
+        //   string,
+        //   '-',
+        //   index,
+        //   '-',
+        //   g?.length
+        // );
         index += (g?.length || 1) - 1;
         continue;
       }
+
+      if (startIndex === -1 && endIndex === -1) continue;
 
       if (startIndex > -1) {
         stack.push(startIndex);
@@ -125,9 +162,32 @@ class Extractor {
       ends.length > 0
     ) {
       const start = match[0];
-      const startIndex = string.indexOf(start);
+      const startIndex = Extractor.getPosition(starts);
       const typeIndex = startTypes.indexOf(start);
       const end = endTypes[typeIndex];
+
+      // console.log(
+      //   'cleaner:',
+      //   string, // a ? (b ? c : d) : e
+      //   '-',
+      //   start, // ?
+      //   '-',
+      //   end, // :
+      //   '-',
+      //   startIndex, // 2
+      //   '-',
+      //   typeIndex, // 0
+      //   '-',
+      //   match,
+      //   '-',
+      //   startTypes, // ?
+      //   '-',
+      //   endTypes, // :
+      //   '-',
+      //   starts, // 2 -> ? ok
+      //   '-',
+      //   ends // 16 -> : ok
+      // );
 
       let num = 1;
       for (let index = 1; index < match.length; index++) {
@@ -135,12 +195,23 @@ class Extractor {
         if (element === start) num++;
         else if (element === end) num--;
         if (num === 0) {
-          const endIndex = Extractor.getPosition(string, element, index);
+          const endIndex = Extractor.getPosition(ends, index - 1);
+          // console.log(
+          //   'cleaner end:',
+          //   string, // a ? (b ? c : d) : e
+          //   '-',
+          //   startIndex, // ?
+          //   '-',
+          //   endIndex, // :
+          //   '-',
+          //   removeOuter
+          // );
+
           return cleanFunction(string, startIndex, endIndex, removeOuter);
         }
       }
     }
-    console.log('clean bundler:', string, match, removeOuter);
+    // console.log('clean bundler:', string, match, removeOuter);
     return string;
   }
 
@@ -150,10 +221,11 @@ class Extractor {
     end: number,
     removeOuter?: boolean
   ) {
-    string = string.slice(
-      start + (removeOuter ? 1 : 0),
-      end + 1 - (removeOuter ? 1 : 0)
-    );
+    // console.log('cleanBundle:', string, '-', start, '-', end, '-', removeOuter);
+    string = string
+      .trim()
+      .slice(start + (removeOuter ? 1 : 0), end + 1 - (removeOuter ? 1 : 0));
+    // console.log('cleanBundle 1:', string, '-', start, '-', end);
     return string;
   }
 
@@ -163,6 +235,7 @@ class Extractor {
     end: number //,
     // removeOuter?: boolean
   ) {
+    // console.log('cleanTernary:', string, '-', start, '-', end);
     const ifEl = string.substring(0, start).trim();
     const thenEl = string.substring(start + 1, end).trim();
     const elseEl = string
@@ -170,9 +243,9 @@ class Extractor {
 
       .replace(Extractor.terminatorRegex, '')
       .trim();
-    console.log('ifEl:', ifEl, typeof ifEl);
-    console.log('thenEl:', thenEl, typeof thenEl);
-    console.log('elseEl:', elseEl, typeof elseEl);
+    // console.log('ifEl:', ifEl, typeof ifEl);
+    // console.log('thenEl:', thenEl, typeof thenEl);
+    // console.log('elseEl:', elseEl, typeof elseEl);
 
     return {
       if: typeof ifEl === 'string' ? Extractor.extract(ifEl) : ifEl,
@@ -189,7 +262,30 @@ class Extractor {
 
     if (string == undefined) return string;
 
-    console.log('extract b:', string);
+    // console.log('extract a:', string);
+
+    const tempBundle = Extractor.bundler(
+      string,
+      Extractor.cleanBundle,
+      Extractor.openBrackets,
+      Extractor.closeBrackets
+    );
+
+    // console.log('extract tempBundle:', tempBundle, string);
+
+    const isBundle = tempBundle == string;
+
+    string = isBundle
+      ? Extractor.bundler(
+          string,
+          Extractor.cleanBundle,
+          Extractor.openBrackets,
+          Extractor.closeBrackets,
+          undefined,
+          undefined,
+          true
+        )
+      : string;
 
     for (let index = 0; index < elements.length; index++) {
       const element = elements[index];
@@ -198,7 +294,7 @@ class Extractor {
       }
     }
 
-    console.log('extract c:', string, min);
+    // console.log('extract b:', string, min);
 
     if (min == Infinity) {
       const bundle = Extractor.bundler(
@@ -210,7 +306,7 @@ class Extractor {
         undefined,
         true
       );
-      console.log('extract d:', bundle);
+      // console.log('extract c:', bundle);
       return bundle;
     }
 
@@ -221,18 +317,14 @@ class Extractor {
       Extractor.cleanTernary,
       Extractor.ternaryThen,
       Extractor.ternaryElse,
-      Extractor.openBrackets,
+      Extractor.openBrackets + Extractor.closeBrackets,
       (string) =>
         Extractor.bundler(
           string,
           Extractor.cleanBundle,
           Extractor.openBrackets,
-          Extractor.closeBrackets,
-          undefined,
-          undefined,
-          true
-        ),
-      true
+          Extractor.closeBrackets
+        )
     ); // '?' or ':'
   }
 
@@ -248,14 +340,14 @@ class Extractor {
 
       if (openBracketsIndex > -1) {
         const pg = string.substring(index);
-        console.log('extractTernary bundler pg:', pg);
+        // console.log('extractOption bundler pg:', pg);
         const g = Extractor.bundler(
           pg,
           Extractor.cleanBundle,
           Extractor.openBrackets,
           Extractor.closeBrackets
         );
-        console.log('extractTernary bundler g:', g);
+        console.log('extractOption bundler g:', g);
         index += (g?.length || 1) - 1;
         continue;
       }
@@ -274,11 +366,12 @@ class Extractor {
     let formattedOptions: any = options;
     if (!and && string.includes('&'))
       formattedOptions = options.map((o) => Extractor.extractOption(o, true));
-    console.log('extractOption a:', string, options, formattedOptions);
+    // console.log('extractOption a:', string, options, formattedOptions);
     formattedOptions = formattedOptions.map((o: any) =>
       typeof o === 'string' ? Extractor.extract(o) : o
     );
-    console.log('extractOption b:', formattedOptions);
+    // console.log('extractOption b:', formattedOptions);
+    if (formattedOptions.length == 1) return formattedOptions[0];
     return and ? { and: formattedOptions } : { or: formattedOptions };
   }
 }
