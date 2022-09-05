@@ -133,7 +133,7 @@ class Extractor {
       ends,
       removeOuter,
       object
-    );
+    ).replace(endTypes[0], '');
   }
 
   public static cleaner(
