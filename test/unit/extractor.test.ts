@@ -15,6 +15,7 @@ const option5 = { or: ['v', 'x', 'z'] };
 const object0 = { a: 1, b: 2, c: 3 };
 const object1 = { b: 1, c: 2, d: 3 };
 const object2 = { c: 1, d: 2, e: 3 };
+const object3 = { d: 1, e: 2, f: 3 };
 
 const frontGrouping = {
   if: noGrouping0,
@@ -187,8 +188,12 @@ test('Test Options', async () => {
 test('Test Object', async () => {
   let options = Extractor.extract('{ a: 1, b: 2, c: 3 }');
   expect(options).toMatchObject(object0);
-  options = Extractor.extract('{ a: { b: 1, c: 2, d: 3 }, e: 4 }');
-  expect(options).toMatchObject({ a: object1, e: 4 });
+  options = Extractor.extract('{ a: { b: 1, c: 2, d: 3 }, e: 4, f: 5 }');
+  expect(options).toMatchObject({ a: object1, e: 4, f: 5 });
+  options = Extractor.extract('{ a: 0, b: { c: 1, d: 2, e: 3 }, f: 4 }');
+  expect(options).toMatchObject({ a: 0, b: object2, f: 4 });
+  options = Extractor.extract('{ a: -1, b: 0, c: { d: 1, e: 2, f: 3 } }');
+  expect(options).toMatchObject({ a: -1, b: 0, c: object3 });
 });
 
 test('Complex', async () => {
