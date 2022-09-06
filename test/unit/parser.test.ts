@@ -3,8 +3,8 @@ import { Parser } from '../../source/parser';
 
 const expVars0 = {
   writeDatabaseOptions: {
-    variable: 'writeDatabaseOptions',
-    envVars: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
+    name: 'writeDatabaseOptions',
+    environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
     defaultValues: {
       or: [
         'process.env.DATABASE_OPTIONS',
@@ -13,8 +13,8 @@ const expVars0 = {
     },
   },
   writeDatabaseSSLEnv: {
-    variable: 'writeDatabaseSSLEnv',
-    envVars: ['DATABASE_SSL', 'DATABASE_WRITE_SSL'],
+    name: 'writeDatabaseSSLEnv',
+    environmentVariables: ['DATABASE_SSL', 'DATABASE_WRITE_SSL'],
     defaultValues: {
       or: [
         'process.env.DATABASE_SSL',
@@ -24,8 +24,8 @@ const expVars0 = {
     },
   },
   writeDatabaseConnectionTimeout: {
-    variable: 'writeDatabaseConnectionTimeout',
-    envVars: [
+    name: 'writeDatabaseConnectionTimeout',
+    environmentVariables: [
       'DATABASE_CONNECTION_TIMEOUT',
       'DATABASE_WRITE_CONNECTION_TIMEOUT',
     ],
@@ -37,8 +37,11 @@ const expVars0 = {
     },
   },
   writeDatabaseRequestTimeout: {
-    variable: 'writeDatabaseRequestTimeout',
-    envVars: ['DATABASE_REQUEST_TIMEOUT', 'DATABASE_WRITE_REQUEST_TIMEOUT'],
+    name: 'writeDatabaseRequestTimeout',
+    environmentVariables: [
+      'DATABASE_REQUEST_TIMEOUT',
+      'DATABASE_WRITE_REQUEST_TIMEOUT',
+    ],
     defaultValues: {
       or: [
         'process.env.DATABASE_REQUEST_TIMEOUT',
@@ -47,8 +50,8 @@ const expVars0 = {
     },
   },
   writeDatabaseEncryptionDisabledEnv: {
-    variable: 'writeDatabaseEncryptionDisabledEnv',
-    envVars: [
+    name: 'writeDatabaseEncryptionDisabledEnv',
+    environmentVariables: [
       'DATABASE_ENCRYPTION_DISABLED',
       'DATABASE_WRITE_ENCRYPTION_DISABLED',
     ],
@@ -62,15 +65,15 @@ const expVars0 = {
     },
   },
   readDatabaseOptions: {
-    variable: 'readDatabaseOptions',
-    envVars: ['DATABASE_OPTIONS', 'DATABASE_READ_OPTIONS'],
+    name: 'readDatabaseOptions',
+    environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_READ_OPTIONS'],
     defaultValues: {
       or: ['process.env.DATABASE_OPTIONS', 'process.env.DATABASE_READ_OPTIONS'],
     },
   },
   readDatabaseSSLEnv: {
-    variable: 'readDatabaseSSLEnv',
-    envVars: ['DATABASE_SSL', 'DATABASE_READ_SSL'],
+    name: 'readDatabaseSSLEnv',
+    environmentVariables: ['DATABASE_SSL', 'DATABASE_READ_SSL'],
     defaultValues: {
       or: [
         'process.env.DATABASE_SSL',
@@ -80,8 +83,8 @@ const expVars0 = {
     },
   },
   readDatabaseConnectionTimeout: {
-    variable: 'readDatabaseConnectionTimeout',
-    envVars: [
+    name: 'readDatabaseConnectionTimeout',
+    environmentVariables: [
       'DATABASE_CONNECTION_TIMEOUT',
       'DATABASE_READ_CONNECTION_TIMEOUT',
     ],
@@ -93,8 +96,11 @@ const expVars0 = {
     },
   },
   readDatabaseRequestTimeout: {
-    variable: 'readDatabaseRequestTimeout',
-    envVars: ['DATABASE_REQUEST_TIMEOUT', 'DATABASE_READ_REQUEST_TIMEOUT'],
+    name: 'readDatabaseRequestTimeout',
+    environmentVariables: [
+      'DATABASE_REQUEST_TIMEOUT',
+      'DATABASE_READ_REQUEST_TIMEOUT',
+    ],
     defaultValues: {
       or: [
         'process.env.DATABASE_REQUEST_TIMEOUT',
@@ -103,8 +109,8 @@ const expVars0 = {
     },
   },
   readDatabaseEncryptionDisabledEnv: {
-    variable: 'readDatabaseEncryptionDisabledEnv',
-    envVars: [
+    name: 'readDatabaseEncryptionDisabledEnv',
+    environmentVariables: [
       'DATABASE_ENCRYPTION_DISABLED',
       'DATABASE_READ_ENCRYPTION_DISABLED',
     ],
@@ -121,8 +127,8 @@ const expVars0 = {
 
 const expVars1 = {
   writeDatabaseOptions: {
-    variable: 'writeDatabaseOptions',
-    envVars: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
+    name: 'writeDatabaseOptions',
+    environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
     defaultValues: {
       or: [
         'process.env.DATABASE_OPTIONS',
@@ -131,8 +137,8 @@ const expVars1 = {
     },
   },
   writeDatabaseSSLEnv: {
-    variable: 'writeDatabaseSSLEnv',
-    envVars: ['DATABASE_SSL', 'DATABASE_WRITE_SSL'],
+    name: 'writeDatabaseSSLEnv',
+    environmentVariables: ['DATABASE_SSL', 'DATABASE_WRITE_SSL'],
     defaultValues: {
       or: [
         'process.env.DATABASE_SSL',
@@ -142,8 +148,8 @@ const expVars1 = {
     },
   },
   writeDatabaseConnectionTimeout: {
-    variable: 'writeDatabaseConnectionTimeout',
-    envVars: [
+    name: 'writeDatabaseConnectionTimeout',
+    environmentVariables: [
       'DATABASE_CONNECTION_TIMEOUT',
       'DATABASE_WRITE_CONNECTION_TIMEOUT',
     ],
@@ -155,8 +161,11 @@ const expVars1 = {
     },
   },
   writeDatabaseRequestTimeout: {
-    variable: 'writeDatabaseRequestTimeout',
-    envVars: ['DATABASE_REQUEST_TIMEOUT', 'DATABASE_WRITE_REQUEST_TIMEOUT'],
+    name: 'writeDatabaseRequestTimeout',
+    environmentVariables: [
+      'DATABASE_REQUEST_TIMEOUT',
+      'DATABASE_WRITE_REQUEST_TIMEOUT',
+    ],
     defaultValues: {
       or: [
         'process.env.DATABASE_REQUEST_TIMEOUT',
@@ -165,8 +174,8 @@ const expVars1 = {
     },
   },
   writeDatabaseEncryptionDisabledEnv: {
-    variable: 'writeDatabaseEncryptionDisabledEnv',
-    envVars: [
+    name: 'writeDatabaseEncryptionDisabledEnv',
+    environmentVariables: [
       'DATABASE_ENCRYPTION_DISABLED',
       'DATABASE_WRITE_ENCRYPTION_DISABLED',
     ],
@@ -180,8 +189,8 @@ const expVars1 = {
     },
   },
   eventInfo: {
-    variable: 'eventInfo',
-    envVars: [
+    name: 'eventInfo',
+    environmentVariables: [
       'DATABASE_DISABLED',
       'DATABASE_WRITE_DISABLED',
       'DATABASE_URI',
@@ -250,15 +259,15 @@ const expVars1 = {
     },
   },
   readDatabaseOptions: {
-    variable: 'readDatabaseOptions',
-    envVars: ['DATABASE_OPTIONS', 'DATABASE_READ_OPTIONS'],
+    name: 'readDatabaseOptions',
+    environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_READ_OPTIONS'],
     defaultValues: {
       or: ['process.env.DATABASE_OPTIONS', 'process.env.DATABASE_READ_OPTIONS'],
     },
   },
   readDatabaseSSLEnv: {
-    variable: 'readDatabaseSSLEnv',
-    envVars: ['DATABASE_SSL', 'DATABASE_READ_SSL'],
+    name: 'readDatabaseSSLEnv',
+    environmentVariables: ['DATABASE_SSL', 'DATABASE_READ_SSL'],
     defaultValues: {
       or: [
         'process.env.DATABASE_SSL',
@@ -268,8 +277,8 @@ const expVars1 = {
     },
   },
   readDatabaseConnectionTimeout: {
-    variable: 'readDatabaseConnectionTimeout',
-    envVars: [
+    name: 'readDatabaseConnectionTimeout',
+    environmentVariables: [
       'DATABASE_CONNECTION_TIMEOUT',
       'DATABASE_READ_CONNECTION_TIMEOUT',
     ],
@@ -281,8 +290,11 @@ const expVars1 = {
     },
   },
   readDatabaseRequestTimeout: {
-    variable: 'readDatabaseRequestTimeout',
-    envVars: ['DATABASE_REQUEST_TIMEOUT', 'DATABASE_READ_REQUEST_TIMEOUT'],
+    name: 'readDatabaseRequestTimeout',
+    environmentVariables: [
+      'DATABASE_REQUEST_TIMEOUT',
+      'DATABASE_READ_REQUEST_TIMEOUT',
+    ],
     defaultValues: {
       or: [
         'process.env.DATABASE_REQUEST_TIMEOUT',
@@ -291,8 +303,8 @@ const expVars1 = {
     },
   },
   readDatabaseEncryptionDisabledEnv: {
-    variable: 'readDatabaseEncryptionDisabledEnv',
-    envVars: [
+    name: 'readDatabaseEncryptionDisabledEnv',
+    environmentVariables: [
       'DATABASE_ENCRYPTION_DISABLED',
       'DATABASE_READ_ENCRYPTION_DISABLED',
     ],
@@ -306,8 +318,8 @@ const expVars1 = {
     },
   },
   readInfo: {
-    variable: 'readInfo',
-    envVars: [
+    name: 'readInfo',
+    environmentVariables: [
       'DATABASE_DISABLED',
       'DATABASE_READ_DISABLED',
       'DATABASE_URI',

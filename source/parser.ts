@@ -35,19 +35,19 @@ class Parser {
         .split(/[:;,.\?\|\& ]+/)
         .filter((str) => str.trim() !== '');
 
-      const variable =
+      const name =
         variables.length === 1
           ? variables[0]
           : variables.length >= 2
           ? variables[1]
           : variables[0];
 
-      // console.log("variable", variable);
+      // console.log("name", name);
 
-      let envVars = [...line.matchAll(/process\.env\.([\w]+)/gm)]
+      let environmentVariables = [...line.matchAll(/process\.env\.([\w]+)/gm)]
         .map((match) => (match + '').replace('process.env.', '').split(','))
         .flat();
-      envVars = [...new Set(envVars)];
+      environmentVariables = [...new Set(environmentVariables)];
 
       // console.log('line', line);
       const defaultValuesStrArr = line.split('=');
@@ -80,14 +80,11 @@ class Parser {
       // const required = defaultValues.length === 0;
 
       const splitted = {
-        variable,
-        envVars,
-        // line,
-        // required,
+        name,
+        environmentVariables,
         defaultValues,
-        // defaultValuesStr,
       };
-      all[variable] = splitted;
+      all[name] = splitted;
     }
 
     return all;
