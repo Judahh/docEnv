@@ -25,6 +25,8 @@ class Extractor {
   public static propertyEquals = ':=';
   public static propertyNext = ',;';
 
+  public static comparation = '!=><';
+
   public static getPosition(matches: Array<number>, index = 0) {
     return matches[index];
   }
@@ -125,7 +127,7 @@ class Extractor {
     match.push(endTypes[0]);
     string += endTypes[0];
     // console.log('Bundler L:', string, '-', match, '-', starts, '-', ends);
-    return Extractor.cleaner(
+    const clean = Extractor.cleaner(
       string,
       cleanFunction,
       startTypes,
@@ -135,7 +137,12 @@ class Extractor {
       ends,
       removeOuter,
       object
-    ).replace(endTypes[0], '');
+    );
+    // console.log('Bundler clean:', clean);
+    const cleanString =
+      typeof clean === 'string' ? clean.replace(endTypes[0], '') : clean;
+    // console.log('Bundler cleanString:', cleanString);
+    return cleanString;
   }
 
   public static cleaner(
@@ -243,14 +250,18 @@ class Extractor {
     while (index < objectString.length) {
       const currentString = objectString.substring(index).trim();
       // console.log('cleanObject start', currentString, currentString.length);
-      const bundled = Extractor.bundler(
+      const bundledElement = Extractor.bundler(
         currentString,
         Extractor.cleanBundle,
         Extractor.propertyEquals,
         Extractor.propertyNext,
         Extractor.openBrackets + Extractor.closeBrackets,
         hideFunction
-      ).trim();
+      );
+      const bundled =
+        typeof bundledElement === 'string'
+          ? bundledElement.trim()
+          : bundledElement;
       // console.log('cleanObject bundled', bundled);
       const position = objectString.indexOf(bundled, index);
       // console.log('cleanObject position', position);
@@ -281,7 +292,8 @@ class Extractor {
       //   bundled
       // );
       const lastIndex = index;
-      index = position + bundled.length;
+      index = (position === -1 ? index : position) + (bundled?.length || 1);
+      // console.log('cleanObject index', index, lastIndex, position);
       if (index === lastIndex) break;
       // console.log(
       //   'cleanObject index',
@@ -294,7 +306,7 @@ class Extractor {
       //   object
       // );
     }
-    // console.log('cleanObject', object);
+    // console.log('cleanObject end', object);
     return object;
   }
 
@@ -323,10 +335,43 @@ class Extractor {
     };
   }
 
+  public static getNext = (string: string, index: number) => {
+    const next = index + 1 < string.length ? string[index + 1] : undefined;
+    if (next === ' ' || next === '\n')
+      return Extractor.getNext(string, index + 1);
+    return next;
+  };
+
+  public static checkComparation(string: string) {
+    let min = Infinity;
+    let minElementIndex;
+    for (let index = 0; index < Extractor.comparation.length; index++) {
+      const element = Extractor.comparation[index];
+      const newI = string?.indexOf
+        ? string.indexOf(element)
+        : element == string
+        ? 0
+        : -1;
+      const next = Extractor.getNext(string, newI);
+      const hasNext =
+        (string?.indexOf ? string.indexOf(next) : next == string ? 0 : -1) ===
+        -1
+          ? false
+          : true;
+      // console.log('checkComparation', element, newI, next, hasNext);
+      if (newI != -1 && (min > newI || min == Infinity) && hasNext) {
+        min = newI;
+        minElementIndex = index;
+      }
+    }
+    // console.log('checkComparation', min, minElementIndex, string);
+    return minElementIndex;
+  }
+
   public static extract(receivedString?: string): any {
     let string = '' + receivedString;
     const elements = Extractor.options + Extractor.ternary + Extractor.object;
-    string = string?.trim();
+    string = string?.replaceAll('?.', '.')?.replaceAll('!.', '.')?.trim();
 
     if (string == undefined) return string;
 
@@ -363,7 +408,8 @@ class Extractor {
         : element == string
         ? 0
         : -1;
-      if (newI != -1 && (min > newI || min == Infinity)) {
+      const next = Extractor.getNext(elements, index);
+      if (newI != -1 && (min > newI || min == Infinity) && next != '.') {
         min = newI;
         minElementIndex = index;
       }
@@ -372,6 +418,8 @@ class Extractor {
     // console.log('min:', minElementIndex, '-', min, '-', string, '-', elements);
 
     if (minElementIndex == undefined) {
+      const compare = Extractor.checkComparation(string);
+      if (compare != undefined) return Extractor.getValue(string);
       const bundle = Extractor.bundler(
         string,
         Extractor.cleanBundle,
@@ -402,23 +450,26 @@ class Extractor {
           )
       ); // '?' or ':'
 
-    // console.log('extract preObject', string);
-    const hideFunction = (string) =>
-      Extractor.bundler(
-        string,
-        Extractor.cleanBundle,
-        Extractor.bOpenBrackets,
-        Extractor.bCloseBrackets
-      );
+    if (minElementIndex != undefined) {
+      // console.log('extract preObject', string);
+      const hideFunction = (string) =>
+        Extractor.bundler(
+          string,
+          Extractor.cleanBundle,
+          Extractor.bOpenBrackets,
+          Extractor.bCloseBrackets
+        );
 
-    return Extractor.bundler(
-      string,
-      Extractor.cleanObject,
-      Extractor.openObject,
-      Extractor.closeObject,
-      Extractor.bBrackets,
-      hideFunction
-    );
+      return Extractor.bundler(
+        string,
+        Extractor.cleanObject,
+        Extractor.openObject,
+        Extractor.closeObject,
+        Extractor.bBrackets,
+        hideFunction
+      );
+    }
+    return Extractor.getValue(string);
   }
 
   public static extractOption(receivedString: string, and?: boolean) {

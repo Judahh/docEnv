@@ -49,12 +49,12 @@ class Parser {
         .flat();
       envVars = [...new Set(envVars)];
 
-      console.log('line', line);
+      // console.log('line', line);
       const defaultValuesStrArr = line.split('=');
 
       defaultValuesStrArr.splice(0, 1);
       const defaultValuesStr = defaultValuesStrArr.join('=');
-      console.log('defaultValuesStr', defaultValuesStr);
+      // console.log('defaultValuesStr', defaultValuesStr);
 
       const defaultValues = Extractor.extract(defaultValuesStr);
 

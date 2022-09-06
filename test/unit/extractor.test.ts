@@ -80,6 +80,22 @@ test('Test Options Basic', async () => {
   expect(options).toMatchObject({ and: ['a', 'b', 'c', 'd', 'e'] });
 });
 
+test('Test Options', async () => {
+  const options =
+    Extractor.extract(`process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
+  process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === '1' ||
+  process.env.DATABASE_WRITE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
+  process.env.DATABASE_WRITE_ENCRYPTION_DISABLED?.toLowerCase() === '1'`);
+  expect(options).toMatchObject({
+    or: [
+      `process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'`,
+      `process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'`,
+      `process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === 'true'`,
+      `process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === '1'`,
+    ],
+  });
+});
+
 test('Test Object', async () => {
   let options = Extractor.extract('{ a: 1, b: 2 }');
   expect(options).toMatchObject({ a: 1, b: 2 });
