@@ -194,12 +194,12 @@ test('Test Object', async () => {
   expect(options).toMatchObject({ a: 0, b: object2, f: 4 });
   options = Extractor.extract('{ a: -1, b: 0, c: { d: 1, e: 2, f: 3 } }');
   expect(options).toMatchObject({ a: -1, b: 0, c: object3 });
-  // options = Extractor.extract('{ a: b || c || d, e: 2, f: 3 }');
-  // expect(options).toMatchObject(object0);
-  // options = Extractor.extract('{ a: 1, b: c || d || e, f: 3 }');
-  // expect(options).toMatchObject(object0);
+  options = Extractor.extract('{ a: b || c || d, e: 2, f: 3 }');
+  expect(options).toMatchObject({ a: option1, e: 2, f: 3 });
+  options = Extractor.extract('{ a: 1, b: c || d || e, f: 3 }');
+  expect(options).toMatchObject({ a: 1, b: option2, f: 3 });
   // options = Extractor.extract('{ a: 1, b: 2, c: d || e || f }');
-  // expect(options).toMatchObject(object0);
+  // expect(options).toMatchObject({ a: 1, b: 2, c: option3 });
 });
 
 // test('Complex', async () => {
