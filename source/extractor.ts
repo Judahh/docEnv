@@ -403,6 +403,13 @@ class Extractor {
       ); // '?' or ':'
 
     // console.log('extract preObject', string);
+    const hideFunction = (string) =>
+      Extractor.bundler(
+        string,
+        Extractor.cleanBundle,
+        Extractor.bOpenBrackets,
+        Extractor.bCloseBrackets
+      );
 
     return Extractor.bundler(
       string,
@@ -410,13 +417,7 @@ class Extractor {
       Extractor.openObject,
       Extractor.closeObject,
       Extractor.bBrackets,
-      (string) =>
-        Extractor.bundler(
-          string,
-          Extractor.cleanBundle,
-          Extractor.bOpenBrackets,
-          Extractor.bCloseBrackets
-        )
+      hideFunction
     );
   }
 
