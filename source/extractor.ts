@@ -1,8 +1,8 @@
 /* eslint-disable no-unused-vars */
 class Extractor {
-  public static and = '&';
-  public static or = '|';
-  public static options = Extractor.and + Extractor.or;
+  public static and = ['&', '&&'];
+  public static or = ['|', '||'];
+  public static options = [...Extractor.and, ...Extractor.or];
 
   public static ternaryThen = '?';
   public static ternaryElse = ':';
@@ -275,8 +275,11 @@ class Extractor {
       );
       // console.log('cleanObject bundled', bundled);
       const value = bundled?.replace(toRemove, '')?.trim();
-      // console.log('cleanObject value', value);
-      object[name] = Extractor.extract(value);
+      console.log('cleanObject name', name);
+      console.log('cleanObject value', value);
+      if (name != undefined && name != '' && name != ' ')
+        object[name] = Extractor.extract(value);
+      else object = Extractor.extract(value);
       // console.log('cleanObject current', object);
 
       // console.log(
@@ -324,9 +327,9 @@ class Extractor {
 
       .replace(Extractor.terminatorRegex, '')
       .trim();
-    // console.log('ifEl:', ifEl, typeof ifEl);
-    // console.log('thenEl:', thenEl, typeof thenEl);
-    // console.log('elseEl:', elseEl, typeof elseEl);
+    console.log('ifEl:', ifEl, typeof ifEl);
+    console.log('thenEl:', thenEl, typeof thenEl);
+    console.log('elseEl:', elseEl, typeof elseEl);
 
     return {
       if: typeof ifEl === 'string' ? Extractor.extract(ifEl) : ifEl,
@@ -335,7 +338,7 @@ class Extractor {
     };
   }
 
-  public static getNext = (string: string, index: number) => {
+  public static getNext = (string: string | string[], index: number) => {
     const next = index + 1 < string.length ? string[index + 1] : undefined;
     if (next === ' ' || next === '\n')
       return Extractor.getNext(string, index + 1);
@@ -370,7 +373,11 @@ class Extractor {
 
   public static extract(receivedString?: string): any {
     let string = '' + receivedString;
-    const elements = Extractor.options + Extractor.ternary + Extractor.object;
+    const elements = [
+      ...Extractor.options,
+      ...Extractor.ternary,
+      ...Extractor.object,
+    ];
     string = string?.replaceAll('?.', '.')?.replaceAll('!.', '.')?.trim();
 
     if (string == undefined) return string;
@@ -400,7 +407,8 @@ class Extractor {
       : string;
 
     let min = Infinity;
-    let minElementIndex;
+    let foundElement;
+    let hasTernary = false;
     for (let index = 0; index < elements.length; index++) {
       const element = elements[index];
       const newI = string?.indexOf
@@ -409,15 +417,35 @@ class Extractor {
         ? 0
         : -1;
       const next = Extractor.getNext(elements, index);
+      if (newI != -1) {
+        const hasATernary = Extractor.ternary.includes(element);
+        if (hasATernary) {
+          console.log('hasATernary', element);
+          hasTernary = true;
+        }
+      }
       if (newI != -1 && (min > newI || min == Infinity) && next != '.') {
         min = newI;
-        minElementIndex = index;
+        foundElement = element;
       }
     }
 
-    // console.log('min:', minElementIndex, '-', min, '-', string, '-', elements);
+    console.log(
+      'extract:',
+      foundElement,
+      '-',
+      min,
+      '-',
+      string,
+      '-',
+      elements,
+      '-',
+      hasTernary,
+      '-',
+      Extractor.ternary
+    );
 
-    if (minElementIndex == undefined) {
+    if (foundElement == undefined) {
       const compare = Extractor.checkComparation(string);
       if (compare != undefined) return Extractor.getValue(string);
       const bundle = Extractor.bundler(
@@ -432,25 +460,7 @@ class Extractor {
       return bundle;
     }
 
-    if (minElementIndex < 2) return Extractor.extractOption(string); // '|' or '&'
-
-    if (minElementIndex < 4)
-      return Extractor.bundler(
-        string,
-        Extractor.cleanTernary,
-        Extractor.ternaryThen,
-        Extractor.ternaryElse,
-        Extractor.openBrackets + Extractor.closeBrackets,
-        (string) =>
-          Extractor.bundler(
-            string,
-            Extractor.cleanBundle,
-            Extractor.openBrackets,
-            Extractor.closeBrackets
-          )
-      ); // '?' or ':'
-
-    if (minElementIndex != undefined) {
+    if (Extractor.object.includes(foundElement)) {
       // console.log('extract preObject', string);
       const hideFunction = (string) =>
         Extractor.bundler(
@@ -469,6 +479,25 @@ class Extractor {
         hideFunction
       );
     }
+
+    if (Extractor.options.includes(foundElement) && !hasTernary)
+      return Extractor.extractOption(string); // '|' or '&'
+
+    if (Extractor.ternary.includes(foundElement) || hasTernary)
+      return Extractor.bundler(
+        string,
+        Extractor.cleanTernary,
+        Extractor.ternaryThen,
+        Extractor.ternaryElse,
+        Extractor.openBrackets + Extractor.closeBrackets,
+        (string) =>
+          Extractor.bundler(
+            string,
+            Extractor.cleanBundle,
+            Extractor.openBrackets,
+            Extractor.closeBrackets
+          )
+      ); // '?' or ':'
     return Extractor.getValue(string);
   }
 
@@ -477,10 +506,17 @@ class Extractor {
     const option = and ? Extractor.and : Extractor.or;
     let options: Array<string> = [];
     let begin = 0;
+    console.log('extractOption', string, option);
     for (let index = 0; index < string.length; index++) {
-      const element = string[index];
-      const optionIndex = option === element ? index : -1;
+      const isDouble =
+        index + 1 < string.length && string[index] === string[index + 1];
+      const element = isDouble
+        ? string[index] + string[index + 1]
+        : string[index];
+      const optionIndex = option.includes(element) ? index : -1;
       const openBracketsIndex = Extractor.openBrackets.indexOf(element);
+
+      if (isDouble) index++;
 
       if (openBracketsIndex > -1) {
         const pg = string.substring(index);
@@ -503,7 +539,13 @@ class Extractor {
     }
     options.push(string.substring(begin, string.length));
     options = options
-      .map((o) => o.replaceAll(option, '').trim())
+      .map((o) => {
+        let no = o;
+        for (const optionE of option) {
+          no = no.replaceAll(optionE, '').trim();
+        }
+        return no;
+      })
       .filter((o) => o.length > 0);
     let formattedOptions: any = options;
     if (!and && string.includes('&'))
@@ -511,6 +553,7 @@ class Extractor {
     formattedOptions = formattedOptions.map((o: any) =>
       typeof o === 'string' ? Extractor.extract(o) : o
     );
+    console.log('extractOption', string, option, formattedOptions);
     if (formattedOptions.length == 1) return formattedOptions[0];
     return and ? { and: formattedOptions } : { or: formattedOptions };
   }

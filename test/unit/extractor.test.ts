@@ -4,6 +4,10 @@ const noGrouping0 = { if: 'a', then: 'b', else: 'c' };
 const noGrouping1 = { if: 'b', then: 'c', else: 'd' };
 const noGrouping2 = { if: 'c', then: 'd', else: 'e' };
 
+const option0 = { or: ['a', 'b', 'c'] };
+const option1 = { or: ['b', 'c', 'd'] };
+const option2 = { or: ['c', 'd', 'e'] };
+
 const frontGrouping = {
   if: noGrouping0,
   then: 'd',
@@ -20,6 +24,24 @@ const backGrouping = {
   if: 'a',
   then: 'b',
   else: noGrouping2,
+};
+
+const frontOption = {
+  if: option0,
+  then: 'd',
+  else: 'e',
+};
+
+const middleOption = {
+  if: 'a',
+  then: option1,
+  else: 'e',
+};
+
+const backOption = {
+  if: 'a',
+  then: 'b',
+  else: option2,
 };
 
 test('Test Ternary Basic', async () => {
@@ -60,6 +82,15 @@ test('Test Ternary Large With Groups', async () => {
   expect(ternary).toMatchObject(frontGrouping);
   ternary = Extractor.extract('a ? b : (c ? d : e)');
   expect(ternary).toMatchObject(backGrouping);
+});
+
+test('Test Ternary Large With Options', async () => {
+  let ternary = Extractor.extract('a || b || c ? d : e;');
+  expect(ternary).toMatchObject(frontOption);
+  ternary = Extractor.extract('a ? b || c || d : e');
+  expect(ternary).toMatchObject(middleOption);
+  ternary = Extractor.extract('a ? b : c || d || e');
+  expect(ternary).toMatchObject(backOption);
 });
 
 test('Test Ternary Large Without Groups', async () => {
