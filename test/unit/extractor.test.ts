@@ -194,23 +194,29 @@ test('Test Object', async () => {
   expect(options).toMatchObject({ a: 0, b: object2, f: 4 });
   options = Extractor.extract('{ a: -1, b: 0, c: { d: 1, e: 2, f: 3 } }');
   expect(options).toMatchObject({ a: -1, b: 0, c: object3 });
+  // options = Extractor.extract('{ a: b || c || d, e: 2, f: 3 }');
+  // expect(options).toMatchObject(object0);
+  // options = Extractor.extract('{ a: 1, b: c || d || e, f: 3 }');
+  // expect(options).toMatchObject(object0);
+  // options = Extractor.extract('{ a: 1, b: 2, c: d || e || f }');
+  // expect(options).toMatchObject(object0);
 });
 
-test('Complex', async () => {
-  let options = Extractor.extract(
-    '{ g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k}'
-  );
-  expect(options).toMatchObject(compObject);
-  options = Extractor.extract(
-    '{ if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k}}'
-  );
-  expect(options).toMatchObject(compGrouping);
-  options = Extractor.extract(
-    '{ b: { if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k,},}}'
-  );
-  expect(options).toMatchObject(comp1Grouping);
-  options = Extractor.extract(
-    '{ a: { b: { if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k,},}}}'
-  );
-  expect(options).toMatchObject(comp2Grouping);
-});
+// test('Complex', async () => {
+//   let options = Extractor.extract(
+//     '{ g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k}'
+//   );
+//   expect(options).toMatchObject(compObject);
+//   options = Extractor.extract(
+//     '{ if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k}}'
+//   );
+//   expect(options).toMatchObject(compGrouping);
+//   options = Extractor.extract(
+//     '{ b: { if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k,},}}'
+//   );
+//   expect(options).toMatchObject(comp1Grouping);
+//   options = Extractor.extract(
+//     '{ a: { b: { if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k,},}}}'
+//   );
+//   expect(options).toMatchObject(comp2Grouping);
+// });
