@@ -34,16 +34,18 @@ const backGrouping = {
   else: noGrouping2,
 };
 
+const compObject = {
+  g: option3,
+  l: option4,
+  p: noGrouping3,
+  u: option5,
+  w: 'k',
+};
+
 const compGrouping = {
   if: option2,
   then: 'f',
-  else: {
-    g: option3,
-    l: option4,
-    p: noGrouping3,
-    u: option5,
-    w: 'k',
-  },
+  else: compObject,
 };
 
 const comp1Grouping = {
@@ -191,6 +193,10 @@ test('Test Object', async () => {
 
 test('Complex', async () => {
   let options = Extractor.extract(
+    '{ g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k}'
+  );
+  expect(options).toMatchObject(compObject);
+  options = Extractor.extract(
     '{ if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k}}'
   );
   expect(options).toMatchObject(compGrouping);
