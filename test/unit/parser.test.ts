@@ -1,7 +1,125 @@
 import { readFile } from 'fs/promises';
 import { Parser } from '../../source/parser';
 
-const expVars = {
+const expVars0 = {
+  writeDatabaseOptions: {
+    variable: 'writeDatabaseOptions',
+    envVars: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
+    defaultValues: {
+      or: [
+        'process.env.DATABASE_OPTIONS',
+        'process.env.DATABASE_WRITE_OPTIONS',
+      ],
+    },
+  },
+  writeDatabaseSSLEnv: {
+    variable: 'writeDatabaseSSLEnv',
+    envVars: ['DATABASE_SSL', 'DATABASE_WRITE_SSL'],
+    defaultValues: {
+      or: [
+        'process.env.DATABASE_SSL',
+        'process.env.DATABASE_WRITE_SSL',
+        "'false'",
+      ],
+    },
+  },
+  writeDatabaseConnectionTimeout: {
+    variable: 'writeDatabaseConnectionTimeout',
+    envVars: [
+      'DATABASE_CONNECTION_TIMEOUT',
+      'DATABASE_WRITE_CONNECTION_TIMEOUT',
+    ],
+    defaultValues: {
+      or: [
+        'process.env.DATABASE_CONNECTION_TIMEOUT',
+        'process.env.DATABASE_WRITE_CONNECTION_TIMEOUT',
+      ],
+    },
+  },
+  writeDatabaseRequestTimeout: {
+    variable: 'writeDatabaseRequestTimeout',
+    envVars: ['DATABASE_REQUEST_TIMEOUT', 'DATABASE_WRITE_REQUEST_TIMEOUT'],
+    defaultValues: {
+      or: [
+        'process.env.DATABASE_REQUEST_TIMEOUT',
+        'process.env.DATABASE_WRITE_REQUEST_TIMEOUT',
+      ],
+    },
+  },
+  writeDatabaseEncryptionDisabledEnv: {
+    variable: 'writeDatabaseEncryptionDisabledEnv',
+    envVars: [
+      'DATABASE_ENCRYPTION_DISABLED',
+      'DATABASE_WRITE_ENCRYPTION_DISABLED',
+    ],
+    defaultValues: {
+      or: [
+        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
+        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
+        "process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
+        "process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
+      ],
+    },
+  },
+  readDatabaseOptions: {
+    variable: 'readDatabaseOptions',
+    envVars: ['DATABASE_OPTIONS', 'DATABASE_READ_OPTIONS'],
+    defaultValues: {
+      or: ['process.env.DATABASE_OPTIONS', 'process.env.DATABASE_READ_OPTIONS'],
+    },
+  },
+  readDatabaseSSLEnv: {
+    variable: 'readDatabaseSSLEnv',
+    envVars: ['DATABASE_SSL', 'DATABASE_READ_SSL'],
+    defaultValues: {
+      or: [
+        'process.env.DATABASE_SSL',
+        'process.env.DATABASE_READ_SSL',
+        "'false'",
+      ],
+    },
+  },
+  readDatabaseConnectionTimeout: {
+    variable: 'readDatabaseConnectionTimeout',
+    envVars: [
+      'DATABASE_CONNECTION_TIMEOUT',
+      'DATABASE_READ_CONNECTION_TIMEOUT',
+    ],
+    defaultValues: {
+      or: [
+        'process.env.DATABASE_CONNECTION_TIMEOUT',
+        'process.env.DATABASE_READ_CONNECTION_TIMEOUT',
+      ],
+    },
+  },
+  readDatabaseRequestTimeout: {
+    variable: 'readDatabaseRequestTimeout',
+    envVars: ['DATABASE_REQUEST_TIMEOUT', 'DATABASE_READ_REQUEST_TIMEOUT'],
+    defaultValues: {
+      or: [
+        'process.env.DATABASE_REQUEST_TIMEOUT',
+        'process.env.DATABASE_READ_REQUEST_TIMEOUT',
+      ],
+    },
+  },
+  readDatabaseEncryptionDisabledEnv: {
+    variable: 'readDatabaseEncryptionDisabledEnv',
+    envVars: [
+      'DATABASE_ENCRYPTION_DISABLED',
+      'DATABASE_READ_ENCRYPTION_DISABLED',
+    ],
+    defaultValues: {
+      or: [
+        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
+        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
+        "process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
+        "process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase() === '1'",
+      ],
+    },
+  },
+};
+
+const expVars1 = {
   writeDatabaseOptions: {
     variable: 'writeDatabaseOptions',
     envVars: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
@@ -259,9 +377,16 @@ const expVars = {
   },
 };
 
+test('Test Simple File', async () => {
+  const file = await readFile('./test/sample0.ts', 'utf8');
+  expect(file.length).toBe(2898);
+  const vars = Parser.getSpecialVariables(file);
+  expect(vars).toMatchObject(expVars0);
+});
+
 test('Test File', async () => {
-  const file = await readFile('./test/sample.ts', 'utf8');
+  const file = await readFile('./test/sample1.ts', 'utf8');
   expect(file.length).toBe(6791);
   const vars = Parser.getSpecialVariables(file);
-  expect(vars).toMatchObject(expVars);
+  expect(vars).toMatchObject(expVars1);
 });
