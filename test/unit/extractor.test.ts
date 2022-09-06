@@ -3,10 +3,14 @@ import { Extractor } from '../../source/extractor';
 const noGrouping0 = { if: 'a', then: 'b', else: 'c' };
 const noGrouping1 = { if: 'b', then: 'c', else: 'd' };
 const noGrouping2 = { if: 'c', then: 'd', else: 'e' };
+const noGrouping3 = { if: 'r', then: 's', else: 't' };
 
 const option0 = { or: ['a', 'b', 'c'] };
 const option1 = { or: ['b', 'c', 'd'] };
 const option2 = { or: ['c', 'd', 'e'] };
+const option3 = { or: ['h', 'i', 'j'] };
+const option4 = { and: ['m', 'n', 'o'] };
+const option5 = { or: ['v', 'x', 'z'] };
 
 const object0 = { a: 1, b: 2, c: 3 };
 const object1 = { b: 1, c: 2, d: 3 };
@@ -28,6 +32,26 @@ const backGrouping = {
   if: 'a',
   then: 'b',
   else: noGrouping2,
+};
+
+const compGrouping = {
+  if: option2,
+  then: 'f',
+  else: {
+    g: option3,
+    l: option4,
+    p: noGrouping3,
+    u: option5,
+    w: 'k',
+  },
+};
+
+const comp1Grouping = {
+  b: compGrouping,
+};
+
+const comp2Grouping = {
+  a: comp1Grouping,
 };
 
 const frontOption = {
@@ -163,4 +187,19 @@ test('Test Object', async () => {
   expect(options).toMatchObject(object0);
   options = Extractor.extract('{ a: { b: 1, c: 2, d: 3 }, e: 4 }');
   expect(options).toMatchObject({ a: object1, e: 4 });
+});
+
+test('Complex', async () => {
+  let options = Extractor.extract(
+    '{ if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k}}'
+  );
+  expect(options).toMatchObject(compGrouping);
+  options = Extractor.extract(
+    '{ b: { if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k,},}}'
+  );
+  expect(options).toMatchObject(comp1Grouping);
+  options = Extractor.extract(
+    '{ a: { b: { if: { or: [c, d, e] }, then: f, else: { g: { or: [h, i, j] }, l: { and: [m, n, o] }, p: { if: r, then: s, else: t }, u: { or: [v, x, z] }, w: k,},}}}'
+  );
+  expect(options).toMatchObject(comp2Grouping);
 });
