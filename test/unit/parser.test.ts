@@ -82,22 +82,53 @@ const expVars = {
       'DATABASE_WRITE_PASSWORD',
     ],
     defaultValues: {
-      or: [
-        "process.env.DATABASE_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_DISABLED.toLowerCase() === '1'",
-        "process.env.DATABASE_WRITE_DISABLED.toLowerCase() === 'true'",
-        {
-          if: "process.env.DATABASE_WRITE_DISABLED.toLowerCase() === '1'",
-          then: 'undefined',
-          else: {
-            '': {
-              if: 'uri process.env.DATABASE_URI  process.env.DATABASE_WRITE_URI connectionType process.env.DATABASE_CONNECTION_TYPE  process.env.DATABASE_WRITE_CONNECTION_TYPE options writeDatabaseOptions',
-              then: 'writeDatabaseOptions',
-              else: '',
-            },
-          },
+      if: {
+        or: [
+          "process.env.DATABASE_DISABLED.toLowerCase() === 'true'",
+          "process.env.DATABASE_DISABLED.toLowerCase() === '1'",
+          "process.env.DATABASE_WRITE_DISABLED.toLowerCase() === 'true'",
+          "process.env.DATABASE_WRITE_DISABLED.toLowerCase() === '1'",
+        ],
+      },
+      then: 'undefined',
+      else: {
+        uri: {
+          or: ['process.env.DATABASE_URI', 'process.env.DATABASE_WRITE_URI'],
         },
-      ],
+        connectionType: {
+          or: [
+            'process.env.DATABASE_CONNECTION_TYPE',
+            'process.env.DATABASE_WRITE_CONNECTION_TYPE',
+          ],
+        },
+        options: {
+          if: 'writeDatabaseOptions',
+          then: 'JSON.parse(writeDatabaseOptions)',
+          else: 'writeDatabaseEncryptionDisabled',
+        },
+        database: {
+          or: [
+            'process.env.DATABASE_NAME',
+            'process.env.DATABASE_WRITE_NAME',
+            'write',
+          ],
+        },
+        host: {
+          or: ['process.env.DATABASE_HOST', 'process.env.DATABASE_WRITE_HOST'],
+        },
+        port: {
+          or: ['process.env.DATABASE_USER', 'process.env.DATABASE_WRITE_USER'],
+        },
+        password: {
+          or: [
+            'process.env.DATABASE_PASSWORD',
+            'process.env.DATABASE_WRITE_PASSWORD',
+          ],
+        },
+        ssl: 'writeDatabaseSSL',
+        connectionTimeout: 'writeDatabaseConnectionTimeoutNumber',
+        requestTimeout: 'writeDatabaseRequestTimeoutNumber',
+      },
     },
   },
   readDatabaseOptions: {
@@ -177,22 +208,53 @@ const expVars = {
       'DATABASE_READ_PASSWORD',
     ],
     defaultValues: {
-      or: [
-        "process.env.DATABASE_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_DISABLED.toLowerCase() === '1'",
-        "process.env.DATABASE_READ_DISABLED.toLowerCase() === 'true'",
-        {
-          if: "process.env.DATABASE_READ_DISABLED.toLowerCase() === '1'",
-          then: 'undefined',
-          else: {
-            '': {
-              if: 'uri process.env.DATABASE_URI  process.env.DATABASE_READ_URI connectionType process.env.DATABASE_CONNECTION_TYPE  process.env.DATABASE_READ_CONNECTION_TYPE options readDatabaseOptions',
-              then: 'readDatabaseOptions',
-              else: '',
-            },
-          },
+      if: {
+        or: [
+          "process.env.DATABASE_DISABLED.toLowerCase() === 'true'",
+          "process.env.DATABASE_DISABLED.toLowerCase() === '1'",
+          "process.env.DATABASE_READ_DISABLED.toLowerCase() === 'true'",
+          "process.env.DATABASE_READ_DISABLED.toLowerCase() === '1'",
+        ],
+      },
+      then: 'undefined',
+      else: {
+        uri: {
+          or: ['process.env.DATABASE_URI', 'process.env.DATABASE_READ_URI'],
         },
-      ],
+        connectionType: {
+          or: [
+            'process.env.DATABASE_CONNECTION_TYPE',
+            'process.env.DATABASE_READ_CONNECTION_TYPE',
+          ],
+        },
+        options: {
+          if: 'readDatabaseOptions',
+          then: 'JSON.parse(readDatabaseOptions)',
+          else: 'readDatabaseEncryptionDisabled',
+        },
+        database: {
+          or: [
+            'process.env.DATABASE_NAME',
+            'process.env.DATABASE_READ_NAME',
+            'read',
+          ],
+        },
+        host: {
+          or: ['process.env.DATABASE_HOST', 'process.env.DATABASE_READ_HOST'],
+        },
+        port: {
+          or: ['process.env.DATABASE_USER', 'process.env.DATABASE_READ_USER'],
+        },
+        password: {
+          or: [
+            'process.env.DATABASE_PASSWORD',
+            'process.env.DATABASE_READ_PASSWORD',
+          ],
+        },
+        ssl: 'readDatabaseSSL',
+        connectionTimeout: 'readDatabaseConnectionTimeoutNumber',
+        requestTimeout: 'readDatabaseRequestTimeoutNumber',
+      },
     },
   },
 };
