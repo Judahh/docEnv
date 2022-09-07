@@ -1,12 +1,12 @@
 /* eslint-disable no-unused-vars */
 enum Precedence {
-  ternary, // a ? b : c -> hide each element then extract one by one again
-  assignment, // a =/: b -> hide each element then extract one by one again
-  or, // a ||/| b -> hide each element then extract one by one again
-  and, // a &&/& b -> hide each element then extract one by one again
-  comparation, // a [><=]=(=) b -> hide each element then extract one by one again
-  object, // /{a/} -> hide each element then extract one by one again
-  group, // /[/(/<a/>/)/] -> evaluate the inner element
+  ternary, // a ? b : c -> hide each element then extract one by one again -> /(?:\?|\:)+(?![^\{\[\(\<]*[\}\]\)\>])/gm
+  assignment, // a =/: b -> hide each element then extract one by one again -> /(?<![\:\=])(?:\:|\=){1}(?![\:\=])(?![^\{\[\(\<]*[\}\]\)\>])/gm OR /(?:[^\:|\=]+?)(\:|\=)(?:[^\:|\=]+?)(?![^\{\[\(\<]*[\}\]\)\>])/gm
+  or, // a ||/| b -> hide each element then extract one by one again -> /(\||\|\|)+(?![^\{\[\(\<]*[\}\]\)\>])/gm
+  and, // a &&/& b -> hide each element then extract one by one again -> /(\&|\&\&)+(?![^\{\[\(\<]*[\}\]\)\>])/gm
+  comparation, // a [><=]=(=) b -> hide each element then extract one by one again -> /[\!\>\<\:\=]+(?:[\:\=]){1}(?![^\{\[\(\<]*[\}\]\)\>])/gm
+  object, // /{a/} -> hide each element then extract one by one again -> /(?:\{|\})+(?![^\[\(\<]*[\]\)\>])/gm OR ^(\{)([\{\[\(\<]*.+[\}\]\)\>]*)*(\})$
+  group, // /[/(/<a/>/)/] -> evaluate the inner element -> /(?:\(|\[|\]|\))+/gm
 }
 
 enum ExistingElement {
@@ -46,7 +46,8 @@ class Extractor {
   public static closeObject = '}';
   public static object = Extractor.openObject + Extractor.closeObject;
 
-  public static propertyEquals = ':=';
+  public static simpleEquals = '=';
+  public static equals = ':' + Extractor.simpleEquals;
 
   public static comparation = '!=><';
 
@@ -79,6 +80,10 @@ class Extractor {
     const hideClose = Extractor.groupSimpleRegex(
       Extractor.simpleRegex(Extractor.getToHideOC(precedence, true))
     );
+    console.log('precedence:', precedence);
+    console.log('regex:', regex);
+    console.log('hideOpen:', hideOpen);
+    console.log('hideClose:', hideClose);
     return new RegExp(`${regex}+(?![^${hideOpen}]*[${hideClose}])`, 'gm');
   }
 
@@ -119,13 +124,15 @@ class Extractor {
 
   public static getToHideOC(precedence: Precedence, close?: boolean) {
     const toHide: string[] = [];
-    let hide = precedence++;
+    let hide = precedence + 1;
+    // console.log('hide:', hide);
     while (hide <= Precedence.group) {
       toHide.push(
         ...(close ? Extractor.getClose(hide) : Extractor.getOpen(hide))
       );
       hide++;
     }
+    // console.log('hide done:', toHide);
     return toHide;
   }
 
@@ -133,7 +140,7 @@ class Extractor {
     const toHide: string[] = [];
     switch (precedence) {
       case Precedence.ternary:
-        toHide.push(...Extractor.propertyEquals);
+        toHide.push(...Extractor.simpleEquals);
       case Precedence.assignment:
         toHide.push(...Extractor.or);
       case Precedence.or:
@@ -156,7 +163,7 @@ class Extractor {
       case Precedence.ternary:
         return [...Extractor.then, ...Extractor.else];
       case Precedence.assignment:
-        return [...Extractor.propertyEquals];
+        return [...Extractor.equals];
       case Precedence.or:
         return [...Extractor.or];
       case Precedence.and:
@@ -175,7 +182,7 @@ class Extractor {
       case Precedence.ternary:
         return [...Extractor.then, ...Extractor.else, ...Extractor.terminator];
       case Precedence.assignment:
-        return [...Extractor.propertyEquals, ...Extractor.terminator];
+        return [...Extractor.equals, ...Extractor.terminator];
       case Precedence.or:
         return [...Extractor.or, ...Extractor.terminator];
       case Precedence.and:
@@ -194,7 +201,7 @@ class Extractor {
       case Precedence.ternary:
         return [...Extractor.then];
       case Precedence.assignment:
-        return [...Extractor.propertyEquals];
+        return [...Extractor.equals];
       case Precedence.or:
         return [...Extractor.or];
       case Precedence.and:
@@ -429,8 +436,9 @@ class Extractor {
     precedence: Precedence,
     removeOuter?: boolean,
     object = {}
-  ): any {
+  ) {
     let string = '' + receivedString;
+    console.log('Bundler S:', precedence, string);
     const stack: Array<number> = [];
     const starts: Array<number> = [];
     const ends: Array<number> = [];
@@ -447,8 +455,9 @@ class Extractor {
 
     // console.log('Bundler S:', string);
     const positions = Extractor.getPosistions(precedence);
+    console.log('Bundler P:', positions, precedence);
     if (positions.length <= 1) return string;
-    else if (positions.length == 2) {
+    else if (positions.length === 2) {
       let options: any[] = [];
       // console.log('extractOption', string, option);
       console.log('extractOption E', string, regex, toSplit);
@@ -467,6 +476,7 @@ class Extractor {
       if (options.length == 1) return options[0];
       return cleanFunction(options, false, precedence);
     } else {
+      console.log('extractOption F', string, regex, toSplit);
       for (let index = 0; index < string.length; index++) {
         const element = string[index];
         const startIndex = opens.indexOf(element);
@@ -1088,156 +1098,20 @@ class Extractor {
 
   public static extract(receivedString?: string): any {
     let string = '' + receivedString;
-    const elements = [
-      ...Extractor.options,
-      ...Extractor.ternary,
-      ...Extractor.object,
-    ];
     string = string?.replaceAll('?.', '.')?.replaceAll('!.', '.')?.trim();
 
     if (string == undefined) return string;
 
-    // console.log('Extract:', string);
-
-    const tempBundle = Extractor.bundler3(
-      string,
-      Extractor.cleanBundle,
-      Extractor.bOpenBrackets,
-      Extractor.bCloseBrackets
-    );
-
-    const isBundle = tempBundle == string;
-    // console.log('Extract b:', string);
-
-    string = isBundle
-      ? Extractor.bundler3(
-          string,
-          Extractor.cleanBundle,
-          Extractor.bOpenBrackets,
-          Extractor.bCloseBrackets,
-          undefined,
-          undefined,
-          true
-        )
-      : string;
-
-    let min = Infinity;
-    let foundElement;
-    let hasTernary = false;
-    // let isObject = false;
-    for (let index = 0; index < elements.length; index++) {
-      const element = elements[index];
-      const newI = string?.indexOf
-        ? string.indexOf(element)
-        : element == string
-        ? 0
-        : -1;
-      const next = Extractor.getNext(elements, index);
-      if (newI != -1) {
-        const hasAThen = Extractor.then.includes(element);
-        const hasAElse = Extractor.else.includes(element);
-
-        if (hasAThen) {
-          const found = [...Extractor.else].reduce(
-            (r, element) => r || string.includes(element),
-            false
-          );
-          if (found) hasTernary = true;
-        } else if (hasAElse) {
-          const found = [...Extractor.then].reduce(
-            (r, element) => r || string.includes(element),
-            false
-          );
-          if (found) hasTernary = true;
-        }
-
-        if ((min > newI || min == Infinity) && next != '.') {
-          min = newI;
-          foundElement = element;
-        }
-      }
+    for (
+      let precedence = Precedence.ternary;
+      precedence <= Precedence.group;
+      precedence++
+    ) {
+      const regex = Extractor.regex(precedence);
+      console.log('regex:', regex, precedence, string);
+      if (string.match(regex)) return Extractor.bundler(string, precedence);
     }
 
-    // const isAObject = Extractor.object.includes(foundElement);
-    // if (isAObject) {
-    //   console.log('hasAObject', foundElement);
-    //   isObject = true;
-    // }
-
-    // console.log(
-    //   'extract:',
-    //   foundElement,
-    //   '-',
-    //   min,
-    //   '-',
-    //   string,
-    //   '-',
-    //   elements,
-    //   '-',
-    //   hasTernary,
-    //   '-',
-    //   Extractor.ternary,
-    //   // '-',
-    //   // isObject,
-    //   '-',
-    //   Extractor.object
-    // );
-
-    if (foundElement == undefined) {
-      const compare = Extractor.checkComparation(string);
-      if (compare != undefined) return Extractor.getValue(string);
-      const bundle = Extractor.bundler3(
-        string,
-        Extractor.cleanBundle,
-        Extractor.openBrackets,
-        Extractor.closeBrackets,
-        undefined,
-        undefined,
-        true
-      );
-      return bundle;
-    }
-
-    // console.log('extract 2:', string);
-
-    if (Extractor.options.includes(foundElement) && !hasTernary)
-      return Extractor.bundler2(string); // '|' or '&'
-
-    if (Extractor.ternary.includes(foundElement) || hasTernary)
-      return Extractor.bundler3(
-        string,
-        Extractor.cleanTernary,
-        Extractor.then,
-        Extractor.else,
-        Extractor.openBrackets + Extractor.closeBrackets,
-        (string) =>
-          Extractor.bundler3(
-            string,
-            Extractor.cleanBundle,
-            Extractor.openBrackets,
-            Extractor.closeBrackets
-          )
-      ); // '?' or ':'
-
-    if (Extractor.object.includes(foundElement)) {
-      // console.log('extract preObject', string);
-      const hideFunction = (string) =>
-        Extractor.bundler3(
-          string,
-          Extractor.cleanBundle,
-          Extractor.bOpenBrackets,
-          Extractor.bCloseBrackets
-        );
-
-      return Extractor.bundler3(
-        string,
-        Extractor.cleanObject,
-        Extractor.openObject,
-        Extractor.closeObject,
-        Extractor.bBrackets,
-        hideFunction
-      );
-    }
     return Extractor.getValue(string);
   }
 }

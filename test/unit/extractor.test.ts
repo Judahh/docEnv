@@ -140,120 +140,120 @@ test('Test Ternary Basic', async () => {
   expect(ternary).toMatchObject(noGrouping0);
 });
 
-test('Test Ternary Large With Groups', async () => {
-  let ternary = Extractor.extract('a ? (b ? c : d) : e;');
-  expect(ternary).toMatchObject(middleGrouping);
-  ternary = Extractor.extract('(a ? b : c) ? d : e');
-  expect(ternary).toMatchObject(frontGrouping);
-  ternary = Extractor.extract('a ? b : (c ? d : e)');
-  expect(ternary).toMatchObject(backGrouping);
-});
+// test('Test Ternary Large With Groups', async () => {
+//   let ternary = Extractor.extract('a ? (b ? c : d) : e;');
+//   expect(ternary).toMatchObject(middleGrouping);
+//   ternary = Extractor.extract('(a ? b : c) ? d : e');
+//   expect(ternary).toMatchObject(frontGrouping);
+//   ternary = Extractor.extract('a ? b : (c ? d : e)');
+//   expect(ternary).toMatchObject(backGrouping);
+// });
 
-test('Test Ternary Large With Options', async () => {
-  let ternary = Extractor.extract('a || b || c ? d : e;');
-  expect(ternary).toMatchObject(frontOption);
-  ternary = Extractor.extract('a ? b || c || d : e');
-  expect(ternary).toMatchObject(middleOption);
-  ternary = Extractor.extract('a ? b : c || d || e');
-  expect(ternary).toMatchObject(backOption);
-});
+// test('Test Ternary Large With Options', async () => {
+//   let ternary = Extractor.extract('a || b || c ? d : e;');
+//   expect(ternary).toMatchObject(frontOption);
+//   ternary = Extractor.extract('a ? b || c || d : e');
+//   expect(ternary).toMatchObject(middleOption);
+//   ternary = Extractor.extract('a ? b : c || d || e');
+//   expect(ternary).toMatchObject(backOption);
+// });
 
-test('Test Ternary Large With Object', async () => {
-  let ternary = Extractor.extract('{a: 1, b: 2, c: 3} ? d : e;');
-  expect(ternary).toMatchObject(frontObject);
-  ternary = Extractor.extract('a ? {b: 1, c: 2, d: 3} : e');
-  expect(ternary).toMatchObject(middleObject);
-  ternary = Extractor.extract('a ? b : {c: 1, d: 2, e: 3}');
-  expect(ternary).toMatchObject(backObject);
-});
+// test('Test Ternary Large With Object', async () => {
+//   let ternary = Extractor.extract('{a: 1, b: 2, c: 3} ? d : e;');
+//   expect(ternary).toMatchObject(frontObject);
+//   ternary = Extractor.extract('a ? {b: 1, c: 2, d: 3} : e');
+//   expect(ternary).toMatchObject(middleObject);
+//   ternary = Extractor.extract('a ? b : {c: 1, d: 2, e: 3}');
+//   expect(ternary).toMatchObject(backObject);
+// });
 
-test('Test Ternary Large Without Groups', async () => {
-  let ternary = Extractor.extract('a ? b ? c : d : e');
-  expect(ternary).toMatchObject(middleGrouping);
-  ternary = Extractor.extract(' a ? b : c ? d : e');
-  expect(ternary).toMatchObject(backGrouping);
-});
+// test('Test Ternary Large Without Groups', async () => {
+//   let ternary = Extractor.extract('a ? b ? c : d : e');
+//   expect(ternary).toMatchObject(middleGrouping);
+//   ternary = Extractor.extract(' a ? b : c ? d : e');
+//   expect(ternary).toMatchObject(backGrouping);
+// });
 
-test('Test Options Basic', async () => {
-  let options = Extractor.extract('a || b || c || d && e');
-  expect(options).toMatchObject({ or: ['a', 'b', 'c', { and: ['d', 'e'] }] });
-  options = Extractor.extract('a || b || c || d || e');
-  expect(options).toMatchObject({ or: ['a', 'b', 'c', 'd', 'e'] });
-  options = Extractor.extract('a && b && c && d || e');
-  expect(options).toMatchObject({ or: [{ and: ['a', 'b', 'c', 'd'] }, 'e'] });
-  options = Extractor.extract('a && b && c && d && e');
-  expect(options).toMatchObject({ and: ['a', 'b', 'c', 'd', 'e'] });
-});
+// test('Test Options Basic', async () => {
+//   let options = Extractor.extract('a || b || c || d && e');
+//   expect(options).toMatchObject({ or: ['a', 'b', 'c', { and: ['d', 'e'] }] });
+//   options = Extractor.extract('a || b || c || d || e');
+//   expect(options).toMatchObject({ or: ['a', 'b', 'c', 'd', 'e'] });
+//   options = Extractor.extract('a && b && c && d || e');
+//   expect(options).toMatchObject({ or: [{ and: ['a', 'b', 'c', 'd'] }, 'e'] });
+//   options = Extractor.extract('a && b && c && d && e');
+//   expect(options).toMatchObject({ and: ['a', 'b', 'c', 'd', 'e'] });
+// });
 
-test('Test Options', async () => {
-  let options;
-  options =
-    Extractor.extract(`process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
-  process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === '1' ||
-  process.env.DATABASE_WRITE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
-  process.env.DATABASE_WRITE_ENCRYPTION_DISABLED?.toLowerCase() === '1'`);
-  expect(options).toMatchObject({
-    or: [
-      `process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'`,
-      `process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'`,
-      `process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === 'true'`,
-      `process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === '1'`,
-    ],
-  });
-  options = Extractor.extract('a || b || c ? d : e ');
-  expect(options).toMatchObject({
-    if: or0,
-    then: 'd',
-    else: 'e',
-  });
-  options = Extractor.extract('a || b || ( c ? d : e )');
-  expect(options).toMatchObject({
-    or: ['a', 'b', noGrouping2],
-  });
-  options = Extractor.extract('a || b || { c: 1, d: 2, e: 3 }');
-  expect(options).toMatchObject({
-    or: ['a', 'b', object2],
-  });
-});
+// test('Test Options', async () => {
+//   let options;
+//   options =
+//     Extractor.extract(`process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
+//   process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === '1' ||
+//   process.env.DATABASE_WRITE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
+//   process.env.DATABASE_WRITE_ENCRYPTION_DISABLED?.toLowerCase() === '1'`);
+//   expect(options).toMatchObject({
+//     or: [
+//       `process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'`,
+//       `process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'`,
+//       `process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === 'true'`,
+//       `process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === '1'`,
+//     ],
+//   });
+//   options = Extractor.extract('a || b || c ? d : e ');
+//   expect(options).toMatchObject({
+//     if: or0,
+//     then: 'd',
+//     else: 'e',
+//   });
+//   options = Extractor.extract('a || b || ( c ? d : e )');
+//   expect(options).toMatchObject({
+//     or: ['a', 'b', noGrouping2],
+//   });
+//   options = Extractor.extract('a || b || { c: 1, d: 2, e: 3 }');
+//   expect(options).toMatchObject({
+//     or: ['a', 'b', object2],
+//   });
+// });
 
-test('Test Object', async () => {
-  let options = Extractor.extract('{ a: 1, b: 2, c: 3 }');
-  expect(options).toMatchObject(object0);
-  options = Extractor.extract('{ a: { b: 1, c: 2, d: 3 }, e: 4, f: 5 }');
-  expect(options).toMatchObject({ a: object1, e: 4, f: 5 });
-  options = Extractor.extract('{ a: 0, b: { c: 1, d: 2, e: 3 }, f: 4 }');
-  expect(options).toMatchObject({ a: 0, b: object2, f: 4 });
-  options = Extractor.extract('{ a: -1, b: 0, c: { d: 1, e: 2, f: 3 } }');
-  expect(options).toMatchObject({ a: -1, b: 0, c: object3 });
-  options = Extractor.extract('{ a: b || c || d, e: 2, f: 3 }');
-  expect(options).toMatchObject({ a: or1, e: 2, f: 3 });
-  options = Extractor.extract('{ a: 1, b: c || d || e, f: 3 }');
-  expect(options).toMatchObject({ a: 1, b: or2, f: 3 });
-  options = Extractor.extract('{ a: 1, b: 2, c: d || e || f }');
-  expect(options).toMatchObject({ a: 1, b: 2, c: or3 });
-  options = Extractor.extract('{ a: 1, b: 2, c: d ? e : f }');
-  expect(options).toMatchObject({
-    a: 1,
-    b: 2,
-    c: noGrouping3,
-  });
-});
+// test('Test Object', async () => {
+//   let options = Extractor.extract('{ a: 1, b: 2, c: 3 }');
+//   expect(options).toMatchObject(object0);
+//   options = Extractor.extract('{ a: { b: 1, c: 2, d: 3 }, e: 4, f: 5 }');
+//   expect(options).toMatchObject({ a: object1, e: 4, f: 5 });
+//   options = Extractor.extract('{ a: 0, b: { c: 1, d: 2, e: 3 }, f: 4 }');
+//   expect(options).toMatchObject({ a: 0, b: object2, f: 4 });
+//   options = Extractor.extract('{ a: -1, b: 0, c: { d: 1, e: 2, f: 3 } }');
+//   expect(options).toMatchObject({ a: -1, b: 0, c: object3 });
+//   options = Extractor.extract('{ a: b || c || d, e: 2, f: 3 }');
+//   expect(options).toMatchObject({ a: or1, e: 2, f: 3 });
+//   options = Extractor.extract('{ a: 1, b: c || d || e, f: 3 }');
+//   expect(options).toMatchObject({ a: 1, b: or2, f: 3 });
+//   options = Extractor.extract('{ a: 1, b: 2, c: d || e || f }');
+//   expect(options).toMatchObject({ a: 1, b: 2, c: or3 });
+//   options = Extractor.extract('{ a: 1, b: 2, c: d ? e : f }');
+//   expect(options).toMatchObject({
+//     a: 1,
+//     b: 2,
+//     c: noGrouping3,
+//   });
+// });
 
-test('Complex', async () => {
-  let options = Extractor.extract(
-    '{ g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }'
-  );
-  expect(options).toMatchObject(compObject);
-  options = Extractor.extract(
-    '{ c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}'
-  );
-  expect(options).toMatchObject(compGrouping);
-  options = Extractor.extract(
-    '{ b: { c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}}'
-  );
-  expect(options).toMatchObject(comp1Grouping);
-  options = Extractor.extract(
-    '{ a: { b: { c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}}}'
-  );
-  expect(options).toMatchObject(comp2Grouping);
-});
+// test('Complex', async () => {
+//   let options = Extractor.extract(
+//     '{ g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }'
+//   );
+//   expect(options).toMatchObject(compObject);
+//   options = Extractor.extract(
+//     '{ c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}'
+//   );
+//   expect(options).toMatchObject(compGrouping);
+//   options = Extractor.extract(
+//     '{ b: { c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}}'
+//   );
+//   expect(options).toMatchObject(comp1Grouping);
+//   options = Extractor.extract(
+//     '{ a: { b: { c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}}}'
+//   );
+//   expect(options).toMatchObject(comp2Grouping);
+// });
