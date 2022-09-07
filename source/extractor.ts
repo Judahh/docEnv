@@ -1,14 +1,36 @@
 /* eslint-disable no-unused-vars */
+enum Precedence {
+  ternary, // a ? b : c -> hide each element then extract one by one again
+  or, // a || b -> hide each element then extract one by one again
+  and, // a && b -> hide each element then extract one by one again
+  comparation, // a == b -> hide each element then extract one by one again
+  group, // (a)
+}
+
 class Extractor {
   public static and = ['&', '&&'];
+  public static andRegex = Extractor.and
+    .map((s) => s.replace(/(.)/g, (a) => '\\' + a))
+    .join('|');
   public static or = ['|', '||'];
+  public static orRegex = Extractor.or
+    .map((s) => s.replace(/(.)/g, (a) => '\\' + a))
+    .join('|');
   public static options = [...Extractor.and, ...Extractor.or];
+  public static optionsRegex = Extractor.options
+    .map((s) => s.replace(/(.)/g, (a) => '\\' + a))
+    .join('|');
 
   public static ternaryThen = '?';
   public static ternaryElse = ':';
   public static ternary = Extractor.ternaryThen + Extractor.ternaryElse;
+  public static ternaryRegex = [...Extractor.ternary]
+    .map((s) => s.replace(/(.)/g, (a) => '\\' + a))
+    .join('|');
+
   public static terminator = ',;';
-  public static terminatorRegex = RegExp(`[${Extractor.terminator}]`);
+  public static terminatorRegex = new RegExp(`[${Extractor.terminator}]`);
+
   public static fullTernary = Extractor.ternary + Extractor.terminator;
 
   public static bOpenBrackets = '[(<';
@@ -17,13 +39,18 @@ class Extractor {
 
   public static openBrackets = '{' + Extractor.bOpenBrackets;
   public static closeBrackets = '}' + Extractor.bCloseBrackets;
+  public static openRegex = [...Extractor.openBrackets]
+    .map((s) => '\\' + s)
+    .join('');
+  public static closeRegex = [...Extractor.closeBrackets]
+    .map((s) => '\\' + s)
+    .join('');
   public static brackets = Extractor.openBrackets + Extractor.closeBrackets;
 
   public static openObject = '{';
   public static closeObject = '}';
   public static object = Extractor.openObject + Extractor.closeObject;
   public static propertyEquals = ':=';
-  public static propertyNext = ',;';
 
   public static comparation = '!=><';
 
@@ -140,7 +167,7 @@ class Extractor {
     );
     // console.log('Bundler clean:', endTypes, clean);
     const endt = Array.isArray(endTypes) ? endTypes.join('') : endTypes;
-    const term = RegExp(`^[${endt}]|[${endt}]$`, 'g');
+    const term = new RegExp(`^[${endt}]|[${endt}]$`, 'g');
     const cleanString =
       typeof clean === 'string' ? clean.trim().replaceAll(term, '') : clean;
     // console.log('Bundler cleanString:', cleanString);
@@ -245,12 +272,10 @@ class Extractor {
 
     // console.log('cleanObject init', objectString, objectString.length);
 
-    const openRegex = [...openBrackets].map((s) => '\\' + s).join('');
-    const closeRegex = [...closeBrackets].map((s) => '\\' + s).join('');
-    const toRemove = RegExp(
-      `[${
-        Extractor.propertyEquals + Extractor.propertyNext
-      }]+(?![^${openRegex}]*[${closeRegex}])`,
+    const toRemove = new RegExp(
+      `[${Extractor.propertyEquals + Extractor.terminator}]+(?![^${
+        Extractor.openRegex
+      }]*[${Extractor.closeRegex}])`,
       'g'
     );
 
@@ -262,7 +287,7 @@ class Extractor {
         currentString,
         Extractor.cleanBundle,
         Extractor.propertyEquals,
-        Extractor.propertyNext,
+        Extractor.terminator,
         Extractor.openBrackets + Extractor.closeBrackets,
         hideFunction
       );
@@ -324,12 +349,8 @@ class Extractor {
     const ifEl = string.substring(0, start).trim();
     const thenEl = string.substring(start + 1, end).trim();
 
-    const openRegex = [...Extractor.openBrackets].map((s) => '\\' + s).join('');
-    const closeRegex = [...Extractor.closeBrackets]
-      .map((s) => '\\' + s)
-      .join('');
-    const toRemove = RegExp(
-      `[${Extractor.terminator}]+(?![^${openRegex}]*[${closeRegex}])`,
+    const toRemove = new RegExp(
+      `[${Extractor.terminator}]+(?![^${Extractor.openRegex}]*[${Extractor.closeRegex}])`,
       'g'
     );
 
@@ -544,59 +565,30 @@ class Extractor {
 
   public static extractOption(receivedString: string, and?: boolean) {
     const string = '' + receivedString;
-    const option = and ? Extractor.and : Extractor.or;
-    let options: Array<string> = [];
-    let begin = 0;
+    const option = and ? Extractor.andRegex : Extractor.orRegex;
+    let options: any[] = [];
     // console.log('extractOption', string, option);
-    for (let index = 0; index < string.length; index++) {
-      const isDouble =
-        index + 1 < string.length && string[index] === string[index + 1];
-      const element = isDouble
-        ? string[index] + string[index + 1]
-        : string[index];
-      const optionIndex = option.includes(element) ? index : -1;
-      const openBracketsIndex = Extractor.openBrackets.indexOf(element);
+    const toSplit = new RegExp(
+      `(${option})+(?![^${Extractor.openRegex}]*[${Extractor.closeRegex}])`,
+      'gm'
+    );
 
-      if (isDouble) index++;
+    options = string
+      .split(toSplit)
+      .filter((s) => s && s != undefined && !option.includes(s))
+      .map((s) => s.trim());
 
-      if (openBracketsIndex > -1) {
-        const pg = string.substring(index);
-        const g = Extractor.bundler(
-          pg,
-          Extractor.cleanBundle,
-          Extractor.openBrackets,
-          Extractor.closeBrackets
-        );
-        index += (g?.length || 1) - 1;
-        continue;
-      }
+    // console.log('extractOption options:', options, string, toSplit);
 
-      if (optionIndex === -1) {
-        continue;
-      } else {
-        options.push(string.substring(begin, index));
-        begin = index;
-      }
-    }
-    options.push(string.substring(begin, string.length));
-    options = options
-      .map((o) => {
-        let no = o;
-        for (const optionE of option) {
-          no = no.replaceAll(optionE, '').trim();
-        }
-        return no;
-      })
-      .filter((o) => o.length > 0);
-    let formattedOptions: any = options;
     if (!and && string.includes('&'))
-      formattedOptions = options.map((o) => Extractor.extractOption(o, true));
-    formattedOptions = formattedOptions.map((o: any) =>
+      options = options.map((o) => Extractor.extractOption(o, true));
+    console.log('extractOption 0:', string, option, options);
+    options = options.map((o: any) =>
       typeof o === 'string' ? Extractor.extract(o) : o
     );
-    // console.log('extractOption', string, option, formattedOptions);
-    if (formattedOptions.length == 1) return formattedOptions[0];
-    return and ? { and: formattedOptions } : { or: formattedOptions };
+    console.log('extractOption 1:', string, '-', option, '-', options);
+    if (options.length == 1) return options[0];
+    return and ? { and: options } : { or: options };
   }
 }
 

@@ -186,7 +186,8 @@ test('Test Options Basic', async () => {
 });
 
 test('Test Options', async () => {
-  let options =
+  let options;
+  options =
     Extractor.extract(`process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
   process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === '1' ||
   process.env.DATABASE_WRITE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
@@ -199,7 +200,13 @@ test('Test Options', async () => {
       `process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === '1'`,
     ],
   });
-  options = Extractor.extract('a || b || c ? d : e');
+  options = Extractor.extract('a || b || c ? d : e ');
+  expect(options).toMatchObject({
+    if: or0,
+    then: 'd',
+    else: 'e',
+  });
+  options = Extractor.extract('a || b || ( c ? d : e )');
   expect(options).toMatchObject({
     or: ['a', 'b', noGrouping2],
   });
