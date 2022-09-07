@@ -1,10 +1,11 @@
 /* eslint-disable no-unused-vars */
 enum Precedence {
   ternary, // a ? b : c -> hide each element then extract one by one again
-  or, // a || b -> hide each element then extract one by one again
-  and, // a && b -> hide each element then extract one by one again
-  comparation, // a == b -> hide each element then extract one by one again
-  group, // (a)
+  assignment, // a =/: b -> hide each element then extract one by one again
+  or, // a ||/| b -> hide each element then extract one by one again
+  and, // a &&/& b -> hide each element then extract one by one again
+  comparation, // a [><=]=(=) b -> hide each element then extract one by one again
+  group, // {/[/(/<a>/)/]/} -> evaluate the inner element
 }
 
 class Extractor {
