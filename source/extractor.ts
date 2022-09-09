@@ -466,8 +466,6 @@ class Extractor {
     value: any,
     hiddenPrecedences?: Array<{ precedence: number; string: string }>
   ) {
-    if (value.includes('writeDatabaseSSL'))
-      console.log('Value:', value, hiddenPrecedences);
     if (value == undefined) return value;
     try {
       if (typeof value === 'string') return JSON.parse(value);
@@ -480,25 +478,27 @@ class Extractor {
             hiddenPrecedences?.[0]?.precedence != undefined
               ? hiddenPrecedences[0].precedence
               : Extractor.findPrecedence(value);
-          if (value.includes('writeDatabaseSSL'))
+          if (precedence != undefined)
+            return Extractor.extract(value, precedence);
+          const newValue2 =
+            value.includes("'") || value.includes('"')
+              ? value.replaceAll('"', '').replaceAll("'", '')
+              : value.includes('{@')
+              ? value
+              : `{@${value}}`;
+          if (
+            value.includes('writeDatabaseSSL') ||
+            value.includes('writeDatabaseRequestTimeoutNumber')
+          )
             console.log(
               'N Value:',
               value,
               newValue,
+              newValue2,
               value.includes("'") || value.includes('"'),
               precedence != undefined ? Precedence[precedence] : 'none'
             );
-          // console.log(
-          //   'Precedence:',
-          //   precedence != undefined ? Precedence[precedence] : precedence
-          // );
-          if (precedence != undefined)
-            return Extractor.extract(value, precedence);
-          return value.includes("'") || value.includes('"')
-            ? value.replaceAll('"', '').replaceAll("'", '')
-            : value.includes('{@')
-            ? value
-            : `{@${value}}`;
+          return newValue2;
         }
         return Extractor.getValue(newValue);
       }
@@ -1149,9 +1149,6 @@ class Extractor {
     //   precedence,
     //   precedence != undefined ? Precedence[precedence] : precedence
     // );
-
-    // if (string === 'j, l: m' || string === 'o, p: r ? s : t')
-    //   throw new Error('extract error');
 
     if (precedence != undefined)
       return Extractor.bundler(
