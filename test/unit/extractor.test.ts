@@ -281,11 +281,11 @@ test('Complex', async () => {
   );
   expect(options).toMatchObject(compGrouping);
   options = Extractor.extract(
-    '{ b: { c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}}'
+    '{ b: c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}'
   );
   expect(options).toMatchObject(comp1Grouping);
   options = Extractor.extract(
-    '{ a: { b: c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k }}}'
+    '{ a: { b: ( c || d || e ? f : { g: h || i || j, l: m && n && o, p: r ? s : t , u: v || x || z, w: k })}}'
   );
   expect(options).toMatchObject(comp2Grouping);
 });
