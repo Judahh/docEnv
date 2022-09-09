@@ -486,18 +486,6 @@ class Extractor {
               : value.includes('{@')
               ? value
               : `{@${value}}`;
-          if (
-            value.includes('writeDatabaseSSL') ||
-            value.includes('writeDatabaseRequestTimeoutNumber')
-          )
-            console.log(
-              'N Value:',
-              value,
-              newValue,
-              newValue2,
-              value.includes("'") || value.includes('"'),
-              precedence != undefined ? Precedence[precedence] : 'none'
-            );
           return newValue2;
         }
         return Extractor.getValue(newValue);
