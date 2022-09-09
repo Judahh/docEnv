@@ -7,8 +7,8 @@ const expVars0 = {
     environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
     defaultValues: {
       or: [
-        'process.env.DATABASE_OPTIONS',
-        'process.env.DATABASE_WRITE_OPTIONS',
+        '{@process.env.DATABASE_OPTIONS}',
+        '{@process.env.DATABASE_WRITE_OPTIONS}',
       ],
     },
   },
@@ -17,9 +17,9 @@ const expVars0 = {
     environmentVariables: ['DATABASE_SSL', 'DATABASE_WRITE_SSL'],
     defaultValues: {
       or: [
-        'process.env.DATABASE_SSL',
-        'process.env.DATABASE_WRITE_SSL',
-        "'false'",
+        '{@process.env.DATABASE_SSL}',
+        '{@process.env.DATABASE_WRITE_SSL}',
+        'false',
       ],
     },
   },
@@ -31,8 +31,8 @@ const expVars0 = {
     ],
     defaultValues: {
       or: [
-        'process.env.DATABASE_CONNECTION_TIMEOUT',
-        'process.env.DATABASE_WRITE_CONNECTION_TIMEOUT',
+        '{@process.env.DATABASE_CONNECTION_TIMEOUT}',
+        '{@process.env.DATABASE_WRITE_CONNECTION_TIMEOUT}',
       ],
     },
   },
@@ -44,8 +44,8 @@ const expVars0 = {
     ],
     defaultValues: {
       or: [
-        'process.env.DATABASE_REQUEST_TIMEOUT',
-        'process.env.DATABASE_WRITE_REQUEST_TIMEOUT',
+        '{@process.env.DATABASE_REQUEST_TIMEOUT}',
+        '{@process.env.DATABASE_WRITE_REQUEST_TIMEOUT}',
       ],
     },
   },
@@ -57,10 +57,26 @@ const expVars0 = {
     ],
     defaultValues: {
       or: [
-        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
-        "process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
+        {
+          '{@process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: 'true',
+          },
+        },
+        {
+          '{@process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: '1',
+          },
+        },
+        {
+          '{@process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: 'true',
+          },
+        },
+        {
+          '{@process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: '1',
+          },
+        },
       ],
     },
   },
@@ -68,7 +84,10 @@ const expVars0 = {
     name: 'readDatabaseOptions',
     environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_READ_OPTIONS'],
     defaultValues: {
-      or: ['process.env.DATABASE_OPTIONS', 'process.env.DATABASE_READ_OPTIONS'],
+      or: [
+        '{@process.env.DATABASE_OPTIONS}',
+        '{@process.env.DATABASE_READ_OPTIONS}',
+      ],
     },
   },
   readDatabaseSSLEnv: {
@@ -76,9 +95,9 @@ const expVars0 = {
     environmentVariables: ['DATABASE_SSL', 'DATABASE_READ_SSL'],
     defaultValues: {
       or: [
-        'process.env.DATABASE_SSL',
-        'process.env.DATABASE_READ_SSL',
-        "'false'",
+        '{@process.env.DATABASE_SSL}',
+        '{@process.env.DATABASE_READ_SSL}',
+        'false',
       ],
     },
   },
@@ -90,8 +109,8 @@ const expVars0 = {
     ],
     defaultValues: {
       or: [
-        'process.env.DATABASE_CONNECTION_TIMEOUT',
-        'process.env.DATABASE_READ_CONNECTION_TIMEOUT',
+        '{@process.env.DATABASE_CONNECTION_TIMEOUT}',
+        '{@process.env.DATABASE_READ_CONNECTION_TIMEOUT}',
       ],
     },
   },
@@ -103,8 +122,8 @@ const expVars0 = {
     ],
     defaultValues: {
       or: [
-        'process.env.DATABASE_REQUEST_TIMEOUT',
-        'process.env.DATABASE_READ_REQUEST_TIMEOUT',
+        '{@process.env.DATABASE_REQUEST_TIMEOUT}',
+        '{@process.env.DATABASE_READ_REQUEST_TIMEOUT}',
       ],
     },
   },
@@ -116,10 +135,26 @@ const expVars0 = {
     ],
     defaultValues: {
       or: [
-        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
-        "process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase() === '1'",
+        {
+          '{@process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: 'true',
+          },
+        },
+        {
+          '{@process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: '1',
+          },
+        },
+        {
+          '{@process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: 'true',
+          },
+        },
+        {
+          '{@process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: '1',
+          },
+        },
       ],
     },
   },
@@ -131,8 +166,8 @@ const expVars1 = {
     environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
     defaultValues: {
       or: [
-        'process.env.DATABASE_OPTIONS',
-        'process.env.DATABASE_WRITE_OPTIONS',
+        '{@process.env.DATABASE_OPTIONS}',
+        '{@process.env.DATABASE_WRITE_OPTIONS}',
       ],
     },
   },
@@ -141,9 +176,9 @@ const expVars1 = {
     environmentVariables: ['DATABASE_SSL', 'DATABASE_WRITE_SSL'],
     defaultValues: {
       or: [
-        'process.env.DATABASE_SSL',
-        'process.env.DATABASE_WRITE_SSL',
-        "'false'",
+        '{@process.env.DATABASE_SSL}',
+        '{@process.env.DATABASE_WRITE_SSL}',
+        'false',
       ],
     },
   },
@@ -155,8 +190,8 @@ const expVars1 = {
     ],
     defaultValues: {
       or: [
-        'process.env.DATABASE_CONNECTION_TIMEOUT',
-        'process.env.DATABASE_WRITE_CONNECTION_TIMEOUT',
+        '{@process.env.DATABASE_CONNECTION_TIMEOUT}',
+        '{@process.env.DATABASE_WRITE_CONNECTION_TIMEOUT}',
       ],
     },
   },
@@ -168,8 +203,8 @@ const expVars1 = {
     ],
     defaultValues: {
       or: [
-        'process.env.DATABASE_REQUEST_TIMEOUT',
-        'process.env.DATABASE_WRITE_REQUEST_TIMEOUT',
+        '{@process.env.DATABASE_REQUEST_TIMEOUT}',
+        '{@process.env.DATABASE_WRITE_REQUEST_TIMEOUT}',
       ],
     },
   },
@@ -181,10 +216,26 @@ const expVars1 = {
     ],
     defaultValues: {
       or: [
-        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
-        "process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
+        {
+          '{@process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: 'true',
+          },
+        },
+        {
+          '{@process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: '1',
+          },
+        },
+        {
+          '{@process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: 'true',
+          },
+        },
+        {
+          '{@process.env.DATABASE_WRITE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: '1',
+          },
+        },
       ],
     },
   },
@@ -211,50 +262,79 @@ const expVars1 = {
     defaultValues: {
       if: {
         or: [
-          "process.env.DATABASE_DISABLED.toLowerCase() === 'true'",
-          "process.env.DATABASE_DISABLED.toLowerCase() === '1'",
-          "process.env.DATABASE_WRITE_DISABLED.toLowerCase() === 'true'",
-          "process.env.DATABASE_WRITE_DISABLED.toLowerCase() === '1'",
+          {
+            '{@process.env.DATABASE_DISABLED.toLowerCase()}': {
+              equalTo: 'true',
+            },
+          },
+          {
+            '{@process.env.DATABASE_DISABLED.toLowerCase()}': { equalTo: '1' },
+          },
+          {
+            '{@process.env.DATABASE_WRITE_DISABLED.toLowerCase()}': {
+              equalTo: 'true',
+            },
+          },
+          {
+            '{@process.env.DATABASE_WRITE_DISABLED.toLowerCase()}': {
+              equalTo: '1',
+            },
+          },
         ],
       },
-      then: 'undefined',
+      then: '{@undefined}',
       else: {
-        uri: {
-          or: ['process.env.DATABASE_URI', 'process.env.DATABASE_WRITE_URI'],
-        },
-        connectionType: {
+        '{@uri}': {
           or: [
-            'process.env.DATABASE_CONNECTION_TYPE',
-            'process.env.DATABASE_WRITE_CONNECTION_TYPE',
+            '{@process.env.DATABASE_URI}',
+            '{@process.env.DATABASE_WRITE_URI}',
           ],
         },
-        options: {
-          if: 'writeDatabaseOptions',
-          then: 'JSON.parse(writeDatabaseOptions)',
-          else: 'writeDatabaseEncryptionDisabled',
-        },
-        database: {
+        '{@connectionType}': {
           or: [
-            'process.env.DATABASE_NAME',
-            'process.env.DATABASE_WRITE_NAME',
+            '{@process.env.DATABASE_CONNECTION_TYPE}',
+            '{@process.env.DATABASE_WRITE_CONNECTION_TYPE}',
+          ],
+        },
+        '{@options}': {
+          if: '{@writeDatabaseOptions}',
+          then: '{@writeDatabaseOptions}',
+          else: '{@writeDatabaseEncryptionDisabled}',
+        },
+        '{@database}': {
+          or: [
+            '{@process.env.DATABASE_NAME}',
+            '{@process.env.DATABASE_WRITE_NAME}',
             'write',
           ],
         },
-        host: {
-          or: ['process.env.DATABASE_HOST', 'process.env.DATABASE_WRITE_HOST'],
-        },
-        port: {
-          or: ['process.env.DATABASE_USER', 'process.env.DATABASE_WRITE_USER'],
-        },
-        password: {
+        '{@host}': {
           or: [
-            'process.env.DATABASE_PASSWORD',
-            'process.env.DATABASE_WRITE_PASSWORD',
+            '{@process.env.DATABASE_HOST}',
+            '{@process.env.DATABASE_WRITE_HOST}',
           ],
         },
-        ssl: 'writeDatabaseSSL',
-        connectionTimeout: 'writeDatabaseConnectionTimeoutNumber',
-        requestTimeout: 'writeDatabaseRequestTimeoutNumber',
+        '{@port}': {
+          or: [
+            '{@process.env.DATABASE_PORT}',
+            '{@process.env.DATABASE_WRITE_PORT}',
+          ],
+        },
+        '{@username}': {
+          or: [
+            '{@process.env.DATABASE_USER}',
+            '{@process.env.DATABASE_WRITE_USER}',
+          ],
+        },
+        '{@password}': {
+          or: [
+            '{@process.env.DATABASE_PASSWORD}',
+            '{@process.env.DATABASE_WRITE_PASSWORD}',
+          ],
+        },
+        '{@ssl}': 'writeDatabaseSSL',
+        '{@connectionTimeout}': 'writeDatabaseConnectionTimeoutNumber',
+        '{@requestTimeout}': 'writeDatabaseRequestTimeoutNumber',
       },
     },
   },
@@ -262,7 +342,10 @@ const expVars1 = {
     name: 'readDatabaseOptions',
     environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_READ_OPTIONS'],
     defaultValues: {
-      or: ['process.env.DATABASE_OPTIONS', 'process.env.DATABASE_READ_OPTIONS'],
+      or: [
+        '{@process.env.DATABASE_OPTIONS}',
+        '{@process.env.DATABASE_READ_OPTIONS}',
+      ],
     },
   },
   readDatabaseSSLEnv: {
@@ -270,9 +353,9 @@ const expVars1 = {
     environmentVariables: ['DATABASE_SSL', 'DATABASE_READ_SSL'],
     defaultValues: {
       or: [
-        'process.env.DATABASE_SSL',
-        'process.env.DATABASE_READ_SSL',
-        "'false'",
+        '{@process.env.DATABASE_SSL}',
+        '{@process.env.DATABASE_READ_SSL}',
+        'false',
       ],
     },
   },
@@ -284,8 +367,8 @@ const expVars1 = {
     ],
     defaultValues: {
       or: [
-        'process.env.DATABASE_CONNECTION_TIMEOUT',
-        'process.env.DATABASE_READ_CONNECTION_TIMEOUT',
+        '{@process.env.DATABASE_CONNECTION_TIMEOUT}',
+        '{@process.env.DATABASE_READ_CONNECTION_TIMEOUT}',
       ],
     },
   },
@@ -297,8 +380,8 @@ const expVars1 = {
     ],
     defaultValues: {
       or: [
-        'process.env.DATABASE_REQUEST_TIMEOUT',
-        'process.env.DATABASE_READ_REQUEST_TIMEOUT',
+        '{@process.env.DATABASE_REQUEST_TIMEOUT}',
+        '{@process.env.DATABASE_READ_REQUEST_TIMEOUT}',
       ],
     },
   },
@@ -310,10 +393,26 @@ const expVars1 = {
     ],
     defaultValues: {
       or: [
-        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase() === '1'",
-        "process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase() === 'true'",
-        "process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase() === '1'",
+        {
+          '{@process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: 'true',
+          },
+        },
+        {
+          '{@process.env.DATABASE_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: '1',
+          },
+        },
+        {
+          '{@process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: 'true',
+          },
+        },
+        {
+          '{@process.env.DATABASE_READ_ENCRYPTION_DISABLED.toLowerCase()}': {
+            equalTo: '1',
+          },
+        },
       ],
     },
   },
@@ -340,50 +439,79 @@ const expVars1 = {
     defaultValues: {
       if: {
         or: [
-          "process.env.DATABASE_DISABLED.toLowerCase() === 'true'",
-          "process.env.DATABASE_DISABLED.toLowerCase() === '1'",
-          "process.env.DATABASE_READ_DISABLED.toLowerCase() === 'true'",
-          "process.env.DATABASE_READ_DISABLED.toLowerCase() === '1'",
+          {
+            '{@process.env.DATABASE_DISABLED.toLowerCase()}': {
+              equalTo: 'true',
+            },
+          },
+          {
+            '{@process.env.DATABASE_DISABLED.toLowerCase()}': { equalTo: '1' },
+          },
+          {
+            '{@process.env.DATABASE_READ_DISABLED.toLowerCase()}': {
+              equalTo: 'true',
+            },
+          },
+          {
+            '{@process.env.DATABASE_READ_DISABLED.toLowerCase()}': {
+              equalTo: '1',
+            },
+          },
         ],
       },
-      then: 'undefined',
+      then: '{@undefined}',
       else: {
-        uri: {
-          or: ['process.env.DATABASE_URI', 'process.env.DATABASE_READ_URI'],
-        },
-        connectionType: {
+        '{@uri}': {
           or: [
-            'process.env.DATABASE_CONNECTION_TYPE',
-            'process.env.DATABASE_READ_CONNECTION_TYPE',
+            '{@process.env.DATABASE_URI}',
+            '{@process.env.DATABASE_READ_URI}',
           ],
         },
-        options: {
-          if: 'readDatabaseOptions',
-          then: 'JSON.parse(readDatabaseOptions)',
-          else: 'readDatabaseEncryptionDisabled',
-        },
-        database: {
+        '{@connectionType}': {
           or: [
-            'process.env.DATABASE_NAME',
-            'process.env.DATABASE_READ_NAME',
+            '{@process.env.DATABASE_CONNECTION_TYPE}',
+            '{@process.env.DATABASE_READ_CONNECTION_TYPE}',
+          ],
+        },
+        '{@options}': {
+          if: '{@readDatabaseOptions}',
+          then: '{@readDatabaseOptions}',
+          else: '{@readDatabaseEncryptionDisabled}',
+        },
+        '{@database}': {
+          or: [
+            '{@process.env.DATABASE_NAME}',
+            '{@process.env.DATABASE_READ_NAME}',
             'read',
           ],
         },
-        host: {
-          or: ['process.env.DATABASE_HOST', 'process.env.DATABASE_READ_HOST'],
-        },
-        port: {
-          or: ['process.env.DATABASE_USER', 'process.env.DATABASE_READ_USER'],
-        },
-        password: {
+        '{@host}': {
           or: [
-            'process.env.DATABASE_PASSWORD',
-            'process.env.DATABASE_READ_PASSWORD',
+            '{@process.env.DATABASE_HOST}',
+            '{@process.env.DATABASE_READ_HOST}',
           ],
         },
-        ssl: 'readDatabaseSSL',
-        connectionTimeout: 'readDatabaseConnectionTimeoutNumber',
-        requestTimeout: 'readDatabaseRequestTimeoutNumber',
+        '{@port}': {
+          or: [
+            '{@process.env.DATABASE_PORT}',
+            '{@process.env.DATABASE_READ_PORT}',
+          ],
+        },
+        '{@username}': {
+          or: [
+            '{@process.env.DATABASE_USER}',
+            '{@process.env.DATABASE_READ_USER}',
+          ],
+        },
+        '{@password}': {
+          or: [
+            '{@process.env.DATABASE_PASSWORD}',
+            '{@process.env.DATABASE_READ_PASSWORD}',
+          ],
+        },
+        '{@ssl}': '{@readDatabaseSSL}',
+        '{@connectionTimeout}': '{@readDatabaseConnectionTimeoutNumber}',
+        '{@requestTimeout}': '{@readDatabaseRequestTimeoutNumber}',
       },
     },
   },

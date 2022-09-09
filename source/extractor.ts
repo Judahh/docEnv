@@ -466,7 +466,8 @@ class Extractor {
     value: any,
     hiddenPrecedences?: Array<{ precedence: number; string: string }>
   ) {
-    // console.log('Value:', value, hiddenPrecedences);
+    if (value.includes('writeDatabaseSSL'))
+      console.log('Value:', value, hiddenPrecedences);
     if (value == undefined) return value;
     try {
       if (typeof value === 'string') return JSON.parse(value);
@@ -474,12 +475,19 @@ class Extractor {
     } catch (error) {
       if (typeof value === 'string') {
         const newValue = value.split(new RegExp(`[;]`, 'gm'))[0].trim();
-        // console.log('N Value:', value, newValue);
         if (newValue == value) {
           const precedence =
             hiddenPrecedences?.[0]?.precedence != undefined
               ? hiddenPrecedences[0].precedence
               : Extractor.findPrecedence(value);
+          if (value.includes('writeDatabaseSSL'))
+            console.log(
+              'N Value:',
+              value,
+              newValue,
+              value.includes("'") || value.includes('"'),
+              precedence != undefined ? Precedence[precedence] : 'none'
+            );
           // console.log(
           //   'Precedence:',
           //   precedence != undefined ? Precedence[precedence] : precedence
