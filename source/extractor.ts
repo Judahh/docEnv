@@ -648,23 +648,20 @@ class Extractor {
     let index = 0;
     let indexM = 0;
     const toSplit: number[] = [];
-    while (
-      index < string.length &&
-      (objectMatches && objectMatches?.length
-        ? indexM < objectMatches?.length
-        : true)
-    ) {
+    while (index < string.length) {
       const char = string[index];
       const match = objectMatches?.matches?.[indexM];
       const position = objectMatches?.positions?.[indexM];
+      console.log('filter:', char, index);
 
       if (index === position) {
-        const oldIndex = index;
-        index = index + (match?.length || 0);
+        // const oldIndex = index;
+        index = index + (match?.length || 1) - 1;
         indexM++;
         // if (index >= string.length) {
         //   toSplit.push(oldIndex);
         // }
+        console.log('filter jump:', index, match, position);
       } else if (char === ',') {
         toSplit.push(index);
       }
