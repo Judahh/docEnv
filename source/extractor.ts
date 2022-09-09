@@ -672,12 +672,12 @@ class Extractor {
     }
     console.log('filter toSplit:', toSplit);
     const objects: string[] = [];
-    let tempString = string;
+    let last = 0;
     for (const index of toSplit) {
-      objects.push(string.slice(0, index));
-      tempString = tempString.slice(index, tempString.length);
+      objects.push(string.slice(last, index).trim());
+      last = index + ','.length;
     }
-    objects.push(tempString);
+    objects.push(string.slice(last, string.length).trim());
 
     console.log('filter objects:', objects);
     return objects;
@@ -1144,6 +1144,9 @@ class Extractor {
       precedence,
       precedence != undefined ? Precedence[precedence] : precedence
     );
+
+    if (string === 'j, l: m' || string === 'o, p: r ? s : t')
+      throw new Error('extract error');
 
     if (precedence != undefined)
       return Extractor.bundler(
