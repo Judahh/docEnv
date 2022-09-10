@@ -1,10 +1,12 @@
-/* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-unused-vars */
-const BaseService = class<A, B> {};
-interface IInputCreate<A> {}
-interface IInputUpdate<A> {}
-interface IOutput<A, B> {}
+import {
+  BaseService,
+  IInputCreate,
+  IInputUpdate,
+  IOutput,
+} from '../../mock/service';
+
 export default class AService extends BaseService<
   {
     token?: string;

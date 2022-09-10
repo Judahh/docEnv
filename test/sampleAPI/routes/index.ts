@@ -1,19 +1,9 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 /* eslint-disable @typescript-eslint/no-empty-interface */
+import { RouterSingleton, IRouter, Mauth } from '../../mock/route';
 import AController from '../controllers/aController';
 import BController from '../controllers/bController';
 import CController from '../controllers/cController';
-
-const Mauth = class {
-  async authentication() {}
-  async permission() {}
-};
-const RouterSingleton = class {
-  controller: any;
-};
-interface IRouter {
-  middlewares: unknown[];
-}
 
 export default class Index extends RouterSingleton {
   createRoutes(initDefault?: IRouter) {
