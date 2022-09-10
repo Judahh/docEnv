@@ -25,7 +25,7 @@
   "rules": {
     "filenames/match-regex": [
       2,
-      "((^[a-z]+)(([A-Z])([a-z]*))*)"
+      "((^[[\\a-z]+)(([A-Z])([a-z\\]]*))*)"
     ],
     "filenames/match-exported": 0,
     "filenames/no-index": 0,
