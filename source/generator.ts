@@ -126,28 +126,43 @@ class Generator {
 
   static generateMethods(
     elements: string[],
-    page: { path: string; name: string; methods?: string[] }
+    page: { path: string; name: string; methods?: Record<string, unknown> }
   ): { path: string; name: string } {
-    page.methods = page.methods || [];
+    page.methods = page.methods || {};
     for (const element of elements) {
       switch (element.trim().toLowerCase()) {
         case 'basecontrollercreate':
-          page.methods.push('post');
+          page.methods.create = {
+            http: ['post'],
+          };
           break;
         case 'basecontrollerread':
-          page.methods.push('get');
+          page.methods.read = {
+            http: ['get'],
+          };
           break;
         case 'basecontroller':
-          page.methods.push(...['get', 'post', 'delete']);
+          page.methods.create = {
+            http: ['post'],
+          };
+          page.methods.read = {
+            http: ['get'],
+          };
+          page.methods.delete = {
+            http: ['delete'],
+          };
         case 'basecontrollerupdate':
-          page.methods.push(...['put', 'patch']);
+          page.methods.update = {
+            http: ['put', 'patch'],
+          };
           break;
         case 'basecontrollerdelete':
-          page.methods.push('delete');
+          page.methods.delete = {
+            http: ['delete'],
+          };
           break;
       }
     }
-    page.methods = [...new Set(page.methods)];
     return page;
   }
 
@@ -260,9 +275,151 @@ class Generator {
 
   public static async generate(sourcePath: string): Promise<any> {
     const folder = await readdir(sourcePath, 'utf8');
-    const pages = await Generator.generatePages(sourcePath, folder);
-    await Generator.generateControllers(sourcePath, folder, pages);
+    let pages = await Generator.generatePages(sourcePath, folder);
+    pages = await Generator.generateControllers(sourcePath, folder, pages);
+    pages = await Generator.generateServices(sourcePath, folder, pages);
     return pages;
+  }
+
+  static async generateServices(
+    sourcePath: string,
+    files: string[],
+    pages: {
+      [name: string]: {
+        path: string;
+        name: string;
+        service?: string;
+        controller?: string;
+      };
+    }
+  ): Promise<{ [name: string]: { path: string; name: string } }> {
+    for (const key in pages) {
+      if (Object.prototype.hasOwnProperty.call(pages, key)) {
+        const page = pages[key];
+        page.service = page.controller?.replace('Controller', 'Service');
+      }
+    }
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      if (file.toLowerCase().includes('service'))
+        return await Generator.findServices(`${sourcePath}/${file}`, pages);
+    }
+    return pages;
+  }
+
+  static async findServices(
+    path: string,
+    pages: {
+      [name: string]: {
+        path: string;
+        name: string;
+        service?: string | undefined;
+      };
+    }
+  ): Promise<{ [name: string]: { path: string; name: string } }> {
+    const dir = await readdir(path, 'utf8');
+
+    for (const key in pages) {
+      if (Object.prototype.hasOwnProperty.call(pages, key)) {
+        const lService = pages[key].service?.toLowerCase() + '.ts';
+        if (lService)
+          for (const file of dir) {
+            const route = `${path}/${file}`;
+            if (file.includes('.ts')) {
+              if (file.toLowerCase() === lService)
+                pages[key] = await Generator.generateService(route, pages[key]);
+            } else {
+              pages = await Generator.findServices(route, pages);
+            }
+          }
+      }
+    }
+
+    return pages;
+  }
+
+  static getParams(prefix: string, content: string, isTriple = false) {
+    const groupObject = '\\s*?((?:.|\\s)*?)\\s*?';
+    const groups = isTriple
+      ? `<${groupObject}(?:,${groupObject}){0,1}(?:,${groupObject}){0,1}>`
+      : `<${groupObject}(?:,${groupObject}){0,1}>`;
+    const sRegex = `\\s*${prefix}\\s*${groups}`;
+    const regex = new RegExp(sRegex, 'i');
+    const match: RegExpMatchArray | undefined =
+      content.match(regex) || undefined;
+
+    const filter = match?.[1]?.trim();
+    const input = match?.[2]?.trim();
+    const output = match?.[3]?.trim();
+    return { filter, input, output };
+  }
+
+  static async generateService(
+    path: string,
+    page: {
+      path: string;
+      name: string;
+      service?: string | undefined;
+      methods?: { [name: string]: Record<string, unknown> };
+      baseInput?: string;
+      baseOutput?: string;
+    }
+  ): Promise<{ path: string; name: string }> {
+    const baseContent = await readFile(path, 'utf8');
+    const content = Generator.removeComments(baseContent);
+    const { filter, input, output } = Generator.getParams(
+      `${page.service}\\s*extends\\s*BaseService`,
+      content,
+      true
+    );
+
+    for (const key in page.methods) {
+      if (Object.prototype.hasOwnProperty.call(page.methods, key)) {
+        const method = page.methods[key];
+        const {
+          filter: currentFilter1,
+          input: currentInput1,
+          output: currentOutput,
+        } = Generator.getParams(
+          `${key}\\s*\\(\\s*input\\s*:\\s*IInput${key}\\s*<\\s*?(?:(?:.|\\s)*?)\\s*?(?:,\\s*?(?:(?:.|\\s)*?)\\s*?)*>\\s*\\)\\s*:\\s*(?:Promise\\s*<\\s*)*IOutput`,
+          content,
+          true
+        );
+        const { filter: currentFilter2, input: currentInput2 } =
+          Generator.getParams(
+            `${key}\\s*\\(\\s*input\\s*:\\s*IInput${key}`,
+            content
+          );
+        const currentFilter = currentFilter1 || currentFilter2;
+        const currentInput = currentInput1 || currentInput2;
+        method.filter =
+          currentFilter || (key !== 'create' ? filter : currentFilter);
+        method.input =
+          currentInput ||
+          (key !== 'read' && key !== 'delete' ? input : currentInput);
+        method.output = currentOutput || output;
+      }
+    }
+
+    return await Generator.generateModels(path, page, baseContent);
+  }
+
+  static async generateModels(
+    path: string,
+    page: {
+      path: string;
+      name: string;
+      service?: string | undefined;
+      methods?: { [name: string]: Record<string, unknown> } | undefined;
+      baseInput?: string | undefined;
+      baseOutput?: string | undefined;
+    },
+    rBaseContent: string
+  ): Promise<{ path: string; name: string }> {
+    const baseContent = rBaseContent;
+    const content = Generator.removeComments(baseContent);
+    // TODO: find models files
+    return page;
   }
 }
 

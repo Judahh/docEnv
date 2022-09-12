@@ -14,6 +14,7 @@ export default class AService extends BaseService<
     name?: string;
     levelId?: number;
     level?: string;
+    d0?: string;
   },
   {
     token?: string;
@@ -21,16 +22,36 @@ export default class AService extends BaseService<
     name?: string;
     levelId?: number;
     level?: string;
+    d1?: string;
+  },
+  {
+    token?: string;
+    key?: string;
+    name?: string;
+    levelId?: number;
+    level?: string;
+    d2?: string;
   }
 > {
   async create(
-    input: IInputCreate<{
-      token?: string;
-      key?: string;
-      name?: string;
-      levelId?: number;
-      level?: string;
-    }>
+    input: IInputCreate<
+      {
+        token?: string;
+        key?: string;
+        name?: string;
+        levelId?: number;
+        level?: string;
+        c0?: string;
+      },
+      {
+        token?: string;
+        key?: string;
+        name?: string;
+        levelId?: number;
+        level?: string;
+        c1?: string;
+      }
+    >
   ): Promise<
     IOutput<
       {
@@ -39,6 +60,7 @@ export default class AService extends BaseService<
         name?: string;
         levelId?: number;
         level?: string;
+        c2?: string;
       },
       {
         token?: string;
@@ -46,6 +68,15 @@ export default class AService extends BaseService<
         name?: string;
         levelId?: number;
         level?: string;
+        c3?: string;
+      },
+      {
+        token?: string;
+        key?: string;
+        name?: string;
+        levelId?: number;
+        level?: string;
+        c4?: string;
       }
     >
   > {
@@ -53,13 +84,24 @@ export default class AService extends BaseService<
   }
 
   async update(
-    input: IInputUpdate<{
-      token?: string;
-      key?: string;
-      name?: string;
-      levelId?: number;
-      level?: string;
-    }>
+    input: IInputUpdate<
+      {
+        token?: string;
+        key?: string;
+        name?: string;
+        levelId?: number;
+        level?: string;
+        u0?: string;
+      },
+      {
+        token?: string;
+        key?: string;
+        name?: string;
+        levelId?: number;
+        level?: string;
+        u1?: string;
+      }
+    >
   ): Promise<
     IOutput<
       {
@@ -68,9 +110,19 @@ export default class AService extends BaseService<
         name?: string;
         levelId?: number;
         level?: string;
+        u2?: string;
       },
       {
         token?: string;
+        key?: string;
+        name?: string;
+        levelId?: number;
+        level?: string;
+        u3?: string;
+      },
+      {
+        token?: string;
+        u4?: string;
       }
     >
   > {
