@@ -18,15 +18,15 @@ export default class Index extends RouterSingleton {
 
     if (!this.controller) this.controller = {};
 
-    if (!this.controller.nameA)
-      this.controller.nameA = new AController(initDefault);
+    if (!this.controller.path1Name)
+      this.controller.path1Name = new AController(initDefault);
 
-    if (!this.controller.nameB)
-      this.controller.nameB = new BController(initDefault);
+    if (!this.controller.path2Name)
+      this.controller.path2Name = new BController(initDefault);
 
     initDefault.middlewares.push(authentication, permission);
 
-    if (!this.controller.nameC)
-      this.controller.nameC = new CController(initDefault);
+    if (!this.controller.path3Name)
+      this.controller.path3Name = new CController(initDefault);
   }
 }
