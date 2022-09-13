@@ -1,4 +1,5 @@
 import { readdir, readFile } from 'fs/promises';
+import { Extractor, Precedence } from './extractor';
 
 class Generator {
   public static removeComments(content: string) {
@@ -404,6 +405,25 @@ class Generator {
     return await Generator.generateModels(path, page, baseContent);
   }
 
+  static getImports(content: string) {
+    const sRegex = 'import\\s*{*\\s*(.*?)\\s*}*\\s*from\\s*[\'"`](.*?)[\'"`];*';
+    const regex = new RegExp(sRegex, 'gi');
+    const matches: IterableIterator<RegExpMatchArray> | undefined =
+      content.matchAll(regex) || undefined;
+
+    const found: Array<{ elements: string[]; path: string }> = [];
+    for (const match of matches) {
+      const elements = match?.[1]
+        ?.trim()
+        .split(',')
+        .map((e) => e.trim());
+      const path = match?.[2]?.trim();
+      found.push({ elements, path });
+    }
+
+    return found;
+  }
+
   static async generateModels(
     path: string,
     page: {
@@ -419,7 +439,101 @@ class Generator {
     const baseContent = rBaseContent;
     const content = Generator.removeComments(baseContent);
     // TODO: find models files
+    const imports = Generator.getImports(content);
+    // console.log('IMPORTS:', imports);
+    // console.log('PAGE:', page);
+    for (const key in page.methods) {
+      if (Object.prototype.hasOwnProperty.call(page.methods, key)) {
+        const method = page.methods[key];
+        method.filter = await Generator.generateObject(
+          method.filter as string,
+          imports,
+          path
+        );
+        method.input = await Generator.generateObject(
+          method.input as string,
+          imports,
+          path
+        );
+        method.output = await Generator.generateObject(
+          method.output as string,
+          imports,
+          path
+        );
+        // console.log('Method:', method);
+      }
+    }
     return page;
+  }
+
+  static isArray(sObject: string) {
+    const sRegex = '(?:(w*)s*[s*(w*)s*])|(?:Arrays*<s*(w*)s*>)';
+    const regex = new RegExp(sRegex, 'gi');
+    const matches: IterableIterator<RegExpMatchArray> | undefined =
+      sObject?.matchAll?.(regex) || undefined;
+
+    const found: Array<string> = [];
+    if (matches)
+      for (const match of matches) {
+        const t0 = match?.[1].trim() !== '' ? match?.[1].trim() : undefined;
+        const t1 = match?.[2].trim() !== '' ? match?.[2].trim() : undefined;
+        const t2 = match?.[3].trim() !== '' ? match?.[3].trim() : undefined;
+        const element = t0 || t1 || t2;
+        if (element) found.push(element);
+      }
+
+    return found;
+  }
+
+  static getInterfaces(sObject: string) {
+    const sRegex =
+      '(?:(?:type)|(?:interface))\\s+(\\w+)\\s*=*\\s*(\\{(?:.|\\s|:|;|,)*?\\})';
+    const regex = new RegExp(sRegex, 'gi');
+    const matches: IterableIterator<RegExpMatchArray> | undefined =
+      sObject.matchAll(regex) || undefined;
+
+    const found: Array<{ name?: string; content?: string }> = [];
+    for (const match of matches) {
+      const name = match?.[1].trim() !== '' ? match?.[1].trim() : undefined;
+      const content = match?.[2].trim() !== '' ? match?.[2].trim() : undefined;
+      found.push({ name, content });
+    }
+
+    return found;
+  }
+
+  static async generateObject(
+    sObject: string,
+    imports: { elements: string[]; path: string }[],
+    path: string
+  ) {
+    let nObject = sObject;
+    for (const aImport of imports) {
+      for (const element of aImport.elements) {
+        nObject = nObject?.replace?.(
+          element,
+          (await Generator.getObject(element, aImport.path, path)) ||
+            element ||
+            ''
+        );
+      }
+    }
+    console.log('EXT:', nObject, Extractor.bundler(nObject, Precedence.object));
+    return nObject;
+  }
+
+  static async getObject(element: string, path: string, currentPath: string) {
+    // console.log('OBJECT:', element, path, currentPath);
+    const newPath = Generator.removeFile(currentPath) + '/' + path + '.ts';
+    const baseContent = await readFile(newPath, 'utf8');
+    const content = Generator.removeComments(baseContent);
+    const interfaces = Generator.getInterfaces(content);
+    for (const aInterface of interfaces) {
+      if (aInterface.name === element) {
+        // console.log('found', aInterface.name, aInterface.content);
+        return aInterface.content;
+      }
+    }
   }
 }
 

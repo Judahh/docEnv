@@ -86,7 +86,16 @@ class Extractor {
     return Precedence.group;
   }
 
-  public static getCleanFunction(precedence: Precedence) {
+  public static getCleanFunction(precedence: Precedence): (
+    options: {
+      string?: string;
+      start?: number;
+      end?: number;
+      object?: any;
+    },
+    removeOuter?: boolean,
+    precedence?: Precedence
+  ) => any {
     switch (precedence) {
       case Precedence.ternary:
         return Extractor.cleanTernary;
@@ -494,22 +503,22 @@ class Extractor {
     }
   }
 
-  public static getComparationType(string: string) {
-    const match = string.match(new RegExp(`[${Extractor.comparationD}]`));
+  public static getComparationType(string?: string) {
+    const match = string?.match(new RegExp(`[${Extractor.comparationD}]`));
     if (match) {
       return (
         Extractor.comparationDTypes[match[0]] +
         (match.includes('=') ? 'OrEqualTo' : 'Than')
       );
     }
-    return string.includes('!') ? 'notEqualTo' : 'equalTo';
+    return string?.includes('!') ? 'notEqualTo' : 'equalTo';
   }
 
-  public static cleanAssignment(options: { string: string; object }) {
+  public static cleanAssignment(options: { string?: string; object? }) {
     const toSplit = new RegExp(`[${Extractor.equals}]`, 'gm');
-    const match = options.string.match(toSplit);
-    let elements = options.string.split(toSplit);
-    if (elements.length > 2) {
+    const match = options?.string?.match(toSplit);
+    let elements = options?.string?.split(toSplit);
+    if (elements && elements.length > 2) {
       elements = [
         elements[0],
         elements.slice(1).join(match?.[1] ? match[1] : match?.[0]),
@@ -532,17 +541,17 @@ class Extractor {
     return options.object;
   }
 
-  public static cleanComparation(options: { string: string; object }) {
+  public static cleanComparation(options: { string?: string; object? }) {
     const toSplit = new RegExp(`[${Extractor.comparation}]`, 'gm');
     // console.log('cleanComparation', options.string);
-    const elements = options.string
-      .split(toSplit)
-      .filter((e) => e && e.trim() != '')
-      .map((e) => e.trim());
+    const elements = options?.string
+      ?.split(toSplit)
+      ?.filter((e) => e && e.trim() != '')
+      ?.map((e) => e.trim());
 
     // console.log('cleanComparation elements', elements);
     const name = Extractor.extract(elements?.[0]?.trim());
-    const type = Extractor.getComparationType(options.string);
+    const type = Extractor.getComparationType(options?.string);
     const value = Extractor.extract(elements?.[1]?.trim());
     // console.log('cleanComparation name', name);
     // console.log('cleanComparation value', value);
@@ -560,18 +569,20 @@ class Extractor {
 
   public static cleanBundle(
     options: {
-      string: string;
-      start: number;
-      end: number;
+      string?: string;
+      start?: number;
+      end?: number;
     },
     removeOuter?: boolean
   ) {
     // console.log('CleanBundle:', options, removeOuter);
-    options.string = options.string
-      .trim()
-      .slice(
-        options.start + (removeOuter ? 1 : 0),
-        options.end + 1 - (removeOuter ? 1 : 0)
+    options.string = options?.string
+      ?.trim()
+      ?.slice(
+        (options?.start || 0) + (removeOuter ? 1 : 0),
+        (options?.end || options?.string?.length || 0) +
+          1 -
+          (removeOuter ? 1 : 0)
       );
     // console.log('CleanBundle end:', options.string);
     return Extractor.extract(options.string);
@@ -658,7 +669,7 @@ class Extractor {
         //   toSplit.push(oldIndex);
         // }
         // console.log('filter jump:', index, match, position);
-      } else if (char === ',') {
+      } else if (char === ',' || char === ';') {
         toSplit.push(index);
       }
       index++;
@@ -667,10 +678,12 @@ class Extractor {
     const objects: string[] = [];
     let last = 0;
     for (const index of toSplit) {
-      objects.push(string.slice(last, index).trim());
+      const object = string.slice(last, index).trim();
+      if (object && object !== undefined) objects.push(object);
       last = index + ','.length;
     }
-    objects.push(string.slice(last, string.length).trim());
+    const object = string.slice(last, string.length).trim();
+    if (object && object !== undefined) objects.push(object);
 
     // console.log('filter objects:', objects);
     return objects;
@@ -678,10 +691,10 @@ class Extractor {
 
   public static cleanObject(
     options: {
-      string: string;
-      start: number;
-      end: number;
-      object;
+      string?: string;
+      start?: number;
+      end?: number;
+      object?;
     },
     removeOuter?: boolean,
     precedence = Precedence.object
@@ -690,13 +703,13 @@ class Extractor {
 
     const toReplace = Extractor.groupInternal(precedence);
 
-    const newString = options.string
-      .substring(options.start, options.end)
-      .trim()
-      .replace(toReplace, (a, b) => b)
-      .trim();
+    const newString = options?.string
+      ?.substring(options?.start || 0, options?.end)
+      ?.trim()
+      ?.replace(toReplace, (a, b) => b)
+      ?.trim();
 
-    const objects = Extractor.filterObject(newString);
+    const objects = Extractor.filterObject(newString || '');
 
     // console.log('cleanObject objects', objects, objects.length);
     // console.log('cleanObject init', toReplace, newString);
@@ -715,18 +728,18 @@ class Extractor {
 
   public static cleanTernary(
     options: {
-      string: string;
-      start: number;
-      end: number;
+      string?: string;
+      start?: number;
+      end?: number;
     },
     removeOuter?: boolean,
     precedence = Precedence.ternary
   ) {
     // console.log('CleanTernary:', options, removeOuter, precedence);
-    const ifEl = options.string.substring(0, options.start).trim();
-    const thenEl = options.string
-      .substring(options.start + 1, options.end)
-      .trim();
+    const ifEl = options?.string?.substring(0, options.start).trim();
+    const thenEl = options?.string
+      ?.substring((options.start || 0) + 1, options.end)
+      ?.trim();
 
     // const toRemove = Extractor.regex(precedence);
 
@@ -737,11 +750,11 @@ class Extractor {
     //   true
     // );
 
-    const elseEl = options.string
-      .substring(options.end + 1)
+    const elseEl = options?.string
+      ?.substring((options?.end || 0) + 1)
       // .replaceAll(toRemove, '')
       // .split(terminator)[0]
-      .trim();
+      ?.trim();
     // console.log('ifEl:', ifEl, typeof ifEl);
     // console.log('thenEl:', thenEl, typeof thenEl);
     // console.log('elseEl:', elseEl, typeof elseEl);
@@ -785,7 +798,7 @@ class Extractor {
 
   public static cleaner(
     string: string,
-    cleanFunction: (
+    cleanFunction?: (
       options: {
         string: string;
         start: number;
@@ -795,7 +808,7 @@ class Extractor {
       removeOuter?: boolean,
       precedence?: Precedence
     ) => any,
-    precedence: Precedence,
+    precedence?: Precedence,
     match: Array<string> = [],
     starts: Array<number> = [],
     ends: Array<number> = [],
@@ -804,8 +817,9 @@ class Extractor {
     toHide?: boolean,
     hiddenPrecedences?: Array<{ precedence: number; string: string }>
   ) {
-    const opens = Extractor.getOpen(precedence);
-    const closes = Extractor.getClose(precedence);
+    const opens = precedence !== undefined ? Extractor.getOpen(precedence) : [];
+    const closes =
+      precedence !== undefined ? Extractor.getClose(precedence) : [];
     // console.log(
     //   'Cleaner:',
     //   string,
@@ -840,7 +854,7 @@ class Extractor {
 
           // console.log('Cleaner 2!', cleanFunction, string);
 
-          const clean = cleanFunction(
+          const clean = cleanFunction?.(
             { string, start: startIndex, end: endIndex, object },
             removeOuter
           );
@@ -938,7 +952,7 @@ class Extractor {
       );
       // console.log('extractOption 1:', string, '-', regex, '-', options);
       if (options.length == 1) return options[0];
-      return cleanFunction(options, false, precedence);
+      return cleanFunction(options as any, false, precedence);
     } else {
       // console.log('extractOption F', string, toSplit);
       const hiddenPrecedences: Array<{ precedence: number; string: string }> =
@@ -1121,6 +1135,8 @@ class Extractor {
     from = Precedence.ternary,
     toHide?: boolean
   ): any {
+    // console.log('e', receivedString);
+
     let string = '' + receivedString;
     string = string?.replaceAll('?.', '.')?.replaceAll('!.', '.')?.trim();
 
@@ -1151,4 +1167,4 @@ class Extractor {
   }
 }
 
-export { Extractor };
+export { Extractor, Precedence, NumberOfElements, ExistingElement };

@@ -5,12 +5,12 @@ interface BInput {
   levelId: number;
 }
 
-interface BOutput {
+type BOutput = {
   id: number;
   name: string;
   levelId: number;
   test?: Test;
-}
+};
 
 export interface BFilter {
   id?: number;

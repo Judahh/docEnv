@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/Judahh/flexiblePersistence#readme",
   "dependencies": {
+    "ts-file-parser": "latest"
   },
   "devDependencies": {
     "@types/jest": "latest",
@@ -32,8 +33,8 @@
     "eslint": "latest",
     "eslint-config-prettier": "latest",
     "eslint-plugin-filenames": "latest",
-    "eslint-plugin-prettier": "latest",
     "eslint-plugin-import": "latest",
+    "eslint-plugin-prettier": "latest",
     "jest": "latest",
     "prettier": "latest",
     "reflect-metadata": "latest",
