@@ -20,6 +20,12 @@ class Generator {
     return content.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
   }
 
+  public static goToFile(path?: string, currentPath?: string): string {
+    const newPath =
+      Generator.removeFile(currentPath || '') + '/' + (path || '') + '.ts';
+    return newPath;
+  }
+
   public static removeFile(content: string) {
     return content.replace(/\/[^\/]*\.ts/gm, '').trim();
   }
@@ -416,7 +422,7 @@ class Generator {
       }
     }
 
-    return await Generator.generateModels(path, page, baseContent);
+    return await Generator.generateModels(path, page);
   }
 
   static getImports(content: string) {
@@ -447,30 +453,23 @@ class Generator {
       methods?: { [name: string]: Record<string, unknown> } | undefined;
       baseInput?: string | undefined;
       baseOutput?: string | undefined;
-    },
-    rBaseContent: string
+    }
   ): Promise<{ path: string; name: string }> {
-    const baseContent = rBaseContent;
-    const content = Generator.removeComments(baseContent);
-    const imports = Generator.getImports(content);
     // console.log('IMPORTS:', imports);
     // console.log('PAGE:', page);
     for (const key in page.methods) {
       if (Object.prototype.hasOwnProperty.call(page.methods, key)) {
         const method = page.methods[key];
-        method.filter = await Generator.getFullObject(
+        method.filter = await Generator.getProperty(
           method.filter as string,
-          imports,
           path
         );
-        method.input = await Generator.getFullObject(
+        method.input = await Generator.getProperty(
           method.input as string,
-          imports,
           path
         );
-        method.output = await Generator.getFullObject(
+        method.output = await Generator.getProperty(
           method.output as string,
-          imports,
           path
         );
         console.log('Method:', method);
@@ -515,69 +514,50 @@ class Generator {
     return found;
   }
 
-  static async generateObject(
-    sObject?: string,
-    imports?: { elements: string[]; path: string }[],
-    path?: string
-  ) {
-    let nObject = sObject;
-    if (imports)
-      for (const aImport of imports) {
-        for (const element of aImport.elements) {
-          nObject = nObject?.replace?.(
-            element,
-            (await Generator.getObject(element, aImport.path, path)) ||
-              element ||
-              ''
-          );
-        }
-      }
-    console.log(nObject);
-    return nObject;
-  }
-
-  static async getFullObject(
-    sObject?: string,
-    imports?: { elements: string[]; path: string }[],
-    path?: string
-  ) {
-    if (sObject) {
-      const isArrayA = Generator.isArray(sObject);
+  static async getProperty(name?: string, path?: string) {
+    // TODO: Remover Optional e Array antes de pegar Object
+    if (name) {
+      const isArrayA = Generator.isArray(name);
       const isArray = isArrayA && isArrayA.length;
-      const baseType = (isArray && isArrayA[0]) || sObject;
+      const baseType = (isArray && isArrayA[0]) || name;
       let type;
       console.log('-----', baseType, '-----');
       if (baseTypes.includes(baseType)) {
         type = baseType;
         // console.log(baseType);
       } else {
-        type = await Generator.getType(
-          await Generator.generateObject(baseType, imports, path)
-        );
+        console.log('getFullObject', name, path);
+        type = await Generator.getObject(baseType, path);
       }
       console.log('RESULT:', type);
-      return isArray ? [type] : type;
+      return isArray ? { arrayOf: type } : type;
     }
   }
 
-  static async getType(
-    sObject?: string,
-    imports?: { elements: string[]; path: string }[],
-    path?: string
-  ) {
+  static async getObject(name?: string, path?: string) {
+    const sObject = await Generator.getObjectString(name, path);
     if (sObject) {
       const bundled = Extractor.bundler(sObject, Precedence.object);
       for (const key in bundled) {
         if (Object.prototype.hasOwnProperty.call(bundled, key)) {
           const value = bundled[key];
-          const normalizedKey = key.replace('{@', '').replace('}', '');
+          let normalizedKey = key.replace('{@', '').replace('}', '');
           const normalizedValue = value.replace('{@', '').replace('}', '');
 
-          bundled[normalizedKey] = await Generator.getFullObject(
+          const isOptional = normalizedKey.includes('?');
+          normalizedKey = isOptional
+            ? normalizedKey.replace('?', '')
+            : normalizedKey;
+
+          bundled[normalizedKey] = await Generator.getProperty(
             normalizedValue,
-            imports,
             path
           );
+
+          if (isOptional)
+            bundled[normalizedKey] = Array.isArray(bundled[normalizedKey])
+              ? bundled[normalizedKey].push('undefined')
+              : [bundled[normalizedKey], 'undefined'];
 
           delete bundled[key];
         }
@@ -587,17 +567,32 @@ class Generator {
     return sObject;
   }
 
-  static async getObject(
-    element?: string,
-    path?: string,
-    currentPath?: string
-  ) {
+  static async getObjectString(name?: string, path?: string) {
+    const baseContent = await readFile(path || '', 'utf8');
+    const content = Generator.removeComments(baseContent || '');
+    const imports = Generator.getImports(content);
+    let objectString = name;
+    if (imports)
+      for (const aImport of imports) {
+        for (const element of aImport.elements) {
+          const newPath = Generator.goToFile(aImport.path, path);
+          const baseContent = await readFile(newPath, 'utf8');
+          const content = Generator.removeComments(baseContent);
+          objectString = objectString?.replace?.(
+            element,
+            (await Generator.insertObjectString(element, content)) ||
+              element ||
+              ''
+          );
+        }
+      }
+    console.log(objectString);
+    return objectString;
+  }
+
+  static async insertObjectString(element?: string, content?: string) {
     // console.log('OBJECT:', element, path, currentPath);
-    const newPath =
-      Generator.removeFile(currentPath || '') + '/' + path + '.ts';
-    const baseContent = await readFile(newPath, 'utf8');
-    const content = Generator.removeComments(baseContent);
-    const interfaces = Generator.getInterfaces(content);
+    const interfaces = Generator.getInterfaces(content || '');
     for (const aInterface of interfaces) {
       if (aInterface.name === element) {
         // console.log('found', aInterface.name, aInterface.content);

@@ -24,14 +24,6 @@ const gen0 = {
     controllerPath: '../controllers/aController',
     methods: {
       create: {
-        filter: {
-          token: ['string', 'undefined'],
-          key: ['string', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-          level: ['string', 'undefined'],
-          c2: ['string', 'undefined'],
-        },
         input: {
           token: ['string', 'undefined'],
           key: ['string', 'undefined'],
@@ -83,11 +75,6 @@ const gen0 = {
     controllerPath: '../controllers/bController',
     methods: {
       create: {
-        filter: {
-          id: ['number', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-        },
         input: {
           name: 'string',
           levelId: 'number',
@@ -108,10 +95,7 @@ const gen0 = {
           id: ['number', 'undefined'],
           name: ['string', 'undefined'],
           levelId: ['number', 'undefined'],
-        },
-        input: {
-          name: 'string',
-          levelId: 'number',
+          tests: { arrayOf: ['number'] },
         },
         output: {
           id: 'number',
@@ -129,10 +113,7 @@ const gen0 = {
           id: ['number', 'undefined'],
           name: ['string', 'undefined'],
           levelId: ['number', 'undefined'],
-        },
-        input: {
-          name: 'string',
-          levelId: 'number',
+          tests: { arrayOf: ['number'] },
         },
         output: {
           id: 'number',
@@ -150,6 +131,7 @@ const gen0 = {
           id: ['number', 'undefined'],
           name: ['string', 'undefined'],
           levelId: ['number', 'undefined'],
+          tests: { arrayOf: ['number'] },
         },
         input: {
           name: 'string',
@@ -176,11 +158,6 @@ const gen0 = {
     controllerPath: '../controllers/cController',
     methods: {
       create: {
-        filter: {
-          id: ['number', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-        },
         input: {
           name: 'string',
           levelId: 'number',
@@ -202,10 +179,6 @@ const gen0 = {
           name: ['string', 'undefined'],
           levelId: ['number', 'undefined'],
         },
-        input: {
-          name: 'string',
-          levelId: 'number',
-        },
         output: {
           id: 'number',
           name: 'string',
@@ -222,10 +195,6 @@ const gen0 = {
           id: ['number', 'undefined'],
           name: ['string', 'undefined'],
           levelId: ['number', 'undefined'],
-        },
-        input: {
-          name: 'string',
-          levelId: 'number',
         },
         output: {
           id: 'number',
@@ -267,7 +236,7 @@ test('Test Simple File', async () => {
   for (const key in gen) {
     if (Object.prototype.hasOwnProperty.call(gen, key)) {
       const element = gen[key];
-      console.log(element.methods);
+      console.log(element.methods?.read?.output);
     }
   }
   expect(gen).toMatchObject(gen0);

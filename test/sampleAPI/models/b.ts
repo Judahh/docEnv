@@ -16,6 +16,7 @@ export interface BFilter {
   id?: number;
   name?: string;
   levelId?: number;
+  tests: number[];
 }
 
 export { BInput, BOutput };
