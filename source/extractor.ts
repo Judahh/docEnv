@@ -515,6 +515,7 @@ class Extractor {
   }
 
   public static cleanAssignment(options: { string?: string; object? }) {
+    // console.log('cleanAssignment', options);
     const toSplit = new RegExp(`[${Extractor.equals}]`, 'gm');
     const match = options?.string?.match(toSplit);
     let elements = options?.string?.split(toSplit);
@@ -531,7 +532,14 @@ class Extractor {
       // );
     }
     // console.log('cleanAssignment elements', elements, options.string, match);
-    const name = Extractor.extract(elements?.[0]?.trim());
+    let name = elements?.[0]?.trim();
+    // console.log('name p:', name);
+    const nMatch = name?.match(/\w+\s*\?\s*:*/i);
+    name = nMatch
+      ? '{@' + name + '}'
+      : Extractor.extract(elements?.[0]?.trim());
+    // console.log('name s:', nMatch, name);
+
     const value = Extractor.extract(elements?.[1]?.trim());
     // console.log('cleanAssignment name', name);
     // console.log('cleanAssignment value', value);
@@ -626,10 +634,6 @@ class Extractor {
     match?,
     precedence = Precedence.object
   ) {
-    // const objectMatches = Extractor.objectMatches(string, precedence);
-    // if (objectMatches) {
-    //   return Extractor.filterObject(string, precedence);
-    // } else {
     const toSplit = Extractor.regex(
       Precedence.assignment,
       undefined,
@@ -722,7 +726,7 @@ class Extractor {
         object: options.object,
       });
     }
-    // console.error('cleanObject end', options.object);
+    console.error('cleanObject end', options.object);
     return options.object;
   }
 

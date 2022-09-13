@@ -263,5 +263,12 @@ const gen0 = {
 test('Test Simple File', async () => {
   const path = './test/sampleAPI';
   const gen = await Generator.generate(path);
+  console.log('END');
+  for (const key in gen) {
+    if (Object.prototype.hasOwnProperty.call(gen, key)) {
+      const element = gen[key];
+      console.log(element.methods);
+    }
+  }
   expect(gen).toMatchObject(gen0);
 });
