@@ -486,7 +486,7 @@ class Generator {
 
   static getInterfaces(sObject: string) {
     const sRegex =
-      '(?:(?:type)|(?:interface))\\s+(\\w+)\\s*=*\\s*(\\{(?:.|\\s|:|;|,)*?\\})';
+      '(?:(?:type)|(?:interface)|(?:enum))\\s+(\\w+)\\s*=*\\s*(\\{(?:[^}{]+|\\{(?:[^}{]+|\\{[^}{]*\\})*\\})*\\})';
     const regex = new RegExp(sRegex, 'gi');
     const matches: IterableIterator<RegExpMatchArray> | undefined =
       sObject.matchAll(regex) || undefined;
@@ -512,7 +512,7 @@ class Generator {
       if (baseTypes.includes(baseType)) {
         return { array: type };
       } else {
-        // console.log('getFullObject', type, path);
+        // console.error('getFullObject', type, path);
         type = await Generator.getObject(type, path);
       }
       // console.log('RESULT:', type);
@@ -552,16 +552,26 @@ class Generator {
   }
 
   static removeSpecialCharacters(rValue: any | string) {
-    let value: any | string = rValue;
+    let value: any | string;
+    try {
+      value = JSON.parse(JSON.stringify(rValue));
+    } catch (error) {
+      value = rValue;
+    }
+    // console.log('removeSpecialCharacters B', value);
     if (typeof value === 'string') {
       value = value?.replace('{@', '')?.replace('}', '');
     } else {
       for (const key in value) {
         if (Object.prototype.hasOwnProperty.call(value, key)) {
-          value[key] = Generator.removeSpecialCharacters(value[key]);
+          const newKey = Generator.removeSpecialCharacters(key);
+          const newValue = Generator.removeSpecialCharacters(value[key]);
+          if (newKey !== key) delete value[key];
+          value[newKey] = newValue;
         }
       }
     }
+    // console.log('removeSpecialCharacters A', value);
     return value;
   }
 
@@ -569,25 +579,22 @@ class Generator {
     const imports = await Generator.getImportsFromPath(path);
     // console.log('IMPORTS:', imports);
     if (nameOrObjectString) {
-      const bundled = Extractor.bundler(nameOrObjectString, Precedence.object);
+      const bundled = Generator.removeSpecialCharacters(
+        Extractor.bundler(nameOrObjectString, Precedence.object)
+      );
       for (const key in bundled) {
         if (Object.prototype.hasOwnProperty.call(bundled, key)) {
-          const value = bundled[key];
-          let normalizedKey: string | undefined = key
-            ?.replace('{@', '')
-            ?.replace('}', '');
-          let normalizedValue: any = Generator.removeSpecialCharacters(value);
-
-          normalizedValue =
-            normalizedValue && normalizedValue != 'undefined'
-              ? normalizedValue
+          let normalizedKey: string | undefined = key;
+          let normalizedValue: any =
+            bundled[key] && bundled[key] != 'undefined'
+              ? bundled[key]
               : undefined;
 
           const noProp = normalizedValue ? false : true;
 
-          const isOptional = normalizedKey.includes('?');
+          const isOptional = normalizedKey?.includes('?');
           normalizedKey = isOptional
-            ? normalizedKey.replace('?', '')
+            ? normalizedKey?.replace('?', '')
             : normalizedKey;
 
           normalizedKey =
@@ -635,7 +642,7 @@ class Generator {
             return ret;
           }
 
-          delete bundled[key];
+          if (key !== normalizedKey) delete bundled[key];
         }
       }
       return bundled;

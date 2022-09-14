@@ -169,6 +169,8 @@ const gen0 = {
         input: {
           name: 'string',
           levelId: 'number',
+          el: { and: [{ a: 'number' }, { b: 'number' }] },
+          el2: { or: [{ a: 'number' }, { b: 'number' }] },
         },
         output: {
           id: 'number',
@@ -212,6 +214,8 @@ const gen0 = {
         input: {
           name: 'string',
           levelId: 'number',
+          el: { and: [{ a: 'number' }, { b: 'number' }] },
+          el2: { or: [{ a: 'number' }, { b: 'number' }] },
         },
         output: {
           id: 'number',
