@@ -1,4 +1,10 @@
 import Test from './test';
+export interface BFilter {
+  id?: number;
+  name?: string;
+  levelId?: number;
+  tests: number[];
+}
 
 interface BInput {
   name: string;
@@ -11,12 +17,5 @@ type BOutput = {
   levelId: number;
   test?: Test;
 };
-
-export interface BFilter {
-  id?: number;
-  name?: string;
-  levelId?: number;
-  tests: number[];
-}
 
 export { BInput, BOutput };

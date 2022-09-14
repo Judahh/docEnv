@@ -25,43 +25,43 @@ const gen0 = {
     methods: {
       create: {
         input: {
-          token: ['string', 'undefined'],
-          key: ['string', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-          level: ['string', 'undefined'],
-          c3: ['string', 'undefined'],
+          token: { or: ['string', 'undefined'] },
+          key: { or: ['string', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
+          level: { or: ['string', 'undefined'] },
+          c3: { or: ['string', 'undefined'] },
         },
         output: {
-          token: ['string', 'undefined'],
-          key: ['string', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-          level: ['string', 'undefined'],
-          c4: ['string', 'undefined'],
+          token: { or: ['string', 'undefined'] },
+          key: { or: ['string', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
+          level: { or: ['string', 'undefined'] },
+          c4: { or: ['string', 'undefined'] },
         },
         ...createBase,
       },
       update: {
         filter: {
-          token: ['string', 'undefined'],
-          key: ['string', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-          level: ['string', 'undefined'],
-          u2: ['string', 'undefined'],
+          token: { or: ['string', 'undefined'] },
+          key: { or: ['string', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
+          level: { or: ['string', 'undefined'] },
+          u2: { or: ['string', 'undefined'] },
         },
         input: {
-          token: ['string', 'undefined'],
-          key: ['string', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-          level: ['string', 'undefined'],
-          u3: ['string', 'undefined'],
+          token: { or: ['string', 'undefined'] },
+          key: { or: ['string', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
+          level: { or: ['string', 'undefined'] },
+          u3: { or: ['string', 'undefined'] },
         },
         output: {
-          token: ['string', 'undefined'],
-          u4: ['string', 'undefined'],
+          token: { or: ['string', 'undefined'] },
+          u4: { or: ['string', 'undefined'] },
         },
         ...updateBase,
       },
@@ -83,55 +83,61 @@ const gen0 = {
           id: 'number',
           name: 'string',
           levelId: 'number',
-          test: [
-            { id: 'number', name: 'string', levelId: 'number' },
-            'undefined',
-          ],
+          test: {
+            or: [
+              { id: 'number', name: 'string', levelId: 'number' },
+              'undefined',
+            ],
+          },
         },
         ...createBase,
       },
       read: {
         filter: {
-          id: ['number', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-          tests: { arrayOf: ['number'] },
+          id: { or: ['number', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
+          tests: { array: 'number' },
         },
         output: {
           id: 'number',
           name: 'string',
           levelId: 'number',
-          test: [
-            { id: 'number', name: 'string', levelId: 'number' },
-            'undefined',
-          ],
+          test: {
+            or: [
+              { id: 'number', name: 'string', levelId: 'number' },
+              'undefined',
+            ],
+          },
         },
         ...readBase,
       },
       delete: {
         filter: {
-          id: ['number', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-          tests: { arrayOf: ['number'] },
+          id: { or: ['number', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
+          tests: { array: 'number' },
         },
         output: {
           id: 'number',
           name: 'string',
           levelId: 'number',
-          test: [
-            { id: 'number', name: 'string', levelId: 'number' },
-            'undefined',
-          ],
+          test: {
+            or: [
+              { id: 'number', name: 'string', levelId: 'number' },
+              'undefined',
+            ],
+          },
         },
         ...deleteBase,
       },
       update: {
         filter: {
-          id: ['number', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
-          tests: { arrayOf: ['number'] },
+          id: { or: ['number', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
+          tests: { array: 'number' },
         },
         input: {
           name: 'string',
@@ -141,10 +147,12 @@ const gen0 = {
           id: 'number',
           name: 'string',
           levelId: 'number',
-          test: [
-            { id: 'number', name: 'string', levelId: 'number' },
-            'undefined',
-          ],
+          test: {
+            or: [
+              { id: 'number', name: 'string', levelId: 'number' },
+              'undefined',
+            ],
+          },
         },
         ...updateBase,
       },
@@ -166,52 +174,40 @@ const gen0 = {
           id: 'number',
           name: 'string',
           levelId: 'number',
-          test: [
-            { id: 'number', name: 'string', levelId: 'number' },
-            'undefined',
-          ],
         },
         ...createBase,
       },
       read: {
         filter: {
-          id: ['number', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
+          id: { or: ['number', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
         },
         output: {
           id: 'number',
           name: 'string',
           levelId: 'number',
-          test: [
-            { id: 'number', name: 'string', levelId: 'number' },
-            'undefined',
-          ],
         },
         ...readBase,
       },
       delete: {
         filter: {
-          id: ['number', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
+          id: { or: ['number', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
         },
         output: {
           id: 'number',
           name: 'string',
           levelId: 'number',
-          test: [
-            { id: 'number', name: 'string', levelId: 'number' },
-            'undefined',
-          ],
         },
         ...deleteBase,
       },
       update: {
         filter: {
-          id: ['number', 'undefined'],
-          name: ['string', 'undefined'],
-          levelId: ['number', 'undefined'],
+          id: { or: ['number', 'undefined'] },
+          name: { or: ['string', 'undefined'] },
+          levelId: { or: ['number', 'undefined'] },
         },
         input: {
           name: 'string',
@@ -236,7 +232,18 @@ test('Test Simple File', async () => {
   for (const key in gen) {
     if (Object.prototype.hasOwnProperty.call(gen, key)) {
       const element = gen[key];
-      console.log(element.methods?.read?.output);
+      console.log(key, ':');
+      for (const key2 in element.methods) {
+        if (Object.prototype.hasOwnProperty.call(element.methods, key2)) {
+          const element2 = element?.methods?.[key2];
+          console.log(key2, 'FILTER:', element2?.filter);
+          console.log(key2, 'INPUT:', element2?.input);
+          console.log(key2, 'OUTPUT:', element2?.output);
+          if (element2?.output?.test?.or) {
+            console.log(key2, 'OUTPUT TEST OR:', element2?.output?.test?.or);
+          }
+        }
+      }
     }
   }
   expect(gen).toMatchObject(gen0);

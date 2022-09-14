@@ -514,6 +514,26 @@ class Extractor {
     return string?.includes('!') ? 'notEqualTo' : 'equalTo';
   }
 
+  static isArray(sObject?: string) {
+    const sRegex =
+      '(?<!\\{|:(?:.|\\s)*?)(?:(\\w*?)\\s*?\\[\\s*?([\'"`]*?\\w*?[\'"`]*?,*?)*?\\s*?\\])|(?:Array\\s*?<\\s*?(\\w*?)\\s*?>)';
+    const regex = new RegExp(sRegex, 'gi');
+    const matches: IterableIterator<RegExpMatchArray> | undefined =
+      sObject?.matchAll?.(regex) || undefined;
+
+    const found: Array<string> = [];
+    if (matches)
+      for (const match of matches) {
+        const t0 = match?.[1]?.trim() !== '' ? match?.[1]?.trim() : undefined;
+        const t1 = match?.[2]?.trim() !== '' ? match?.[2]?.trim() : undefined;
+        const t2 = match?.[3]?.trim() !== '' ? match?.[3]?.trim() : undefined;
+        const element = t0 || t1 || t2;
+        if (element) found.push(element);
+      }
+
+    return found;
+  }
+
   public static cleanAssignment(options: { string?: string; object? }) {
     // console.log('cleanAssignment', options);
     const toSplit = new RegExp(`[${Extractor.equals}]`, 'gm');
@@ -540,7 +560,14 @@ class Extractor {
       : Extractor.extract(elements?.[0]?.trim());
     // console.log('name s:', nMatch, name);
 
-    const value = Extractor.extract(elements?.[1]?.trim());
+    let value = elements?.[1]?.trim();
+    const gArray = Extractor.isArray(value);
+    const isArray = gArray && gArray[0];
+    console.log('isArray', isArray, gArray, value);
+    value = isArray ? gArray[0] : value;
+    value = isArray
+      ? { array: Extractor.extract(value) }
+      : Extractor.extract(value);
     // console.log('cleanAssignment name', name);
     // console.log('cleanAssignment value', value);
     if (name != undefined && name != '' && name != ' ')
@@ -716,7 +743,7 @@ class Extractor {
     const objects = Extractor.filterObject(newString || '');
 
     // console.log('cleanObject objects', objects, objects.length);
-    // console.log('cleanObject init', toReplace, newString);
+    console.log('cleanObject init', toReplace, newString);
 
     for (const object of objects) {
       const currentString = object.trim();
