@@ -427,7 +427,7 @@ class Generator {
 
   static async getImportsFromPath(path?: string) {
     const content = await Generator.getFileString(path);
-    console.log('content', content);
+    // console.log('content', content);
     return Generator.getImports(content || '');
   }
 
@@ -478,7 +478,7 @@ class Generator {
           method.output as string,
           path
         );
-        console.log('Method:', method);
+        // console.log('Method:', method);
       }
     }
     return page;
@@ -508,14 +508,14 @@ class Generator {
       const isArray = isArrayA && isArrayA.length;
       const baseType = (isArray && isArrayA[0]) || nameOrObjectString;
       let type = nameOrObjectString;
-      console.log('-----', type, '-----');
+      // console.log('-----', type, '-----');
       if (baseTypes.includes(baseType)) {
         return { array: type };
       } else {
         // console.log('getFullObject', type, path);
         type = await Generator.getObject(type, path);
       }
-      console.log('RESULT:', type);
+      // console.log('RESULT:', type);
       // return isArray ? { array: type } : type;
       return type;
     }
@@ -567,7 +567,7 @@ class Generator {
 
   static async getObject(nameOrObjectString?: string, path?: string) {
     const imports = await Generator.getImportsFromPath(path);
-    console.log('IMPORTS:', imports);
+    // console.log('IMPORTS:', imports);
     if (nameOrObjectString) {
       const bundled = Extractor.bundler(nameOrObjectString, Precedence.object);
       for (const key in bundled) {
@@ -594,20 +594,20 @@ class Generator {
             normalizedKey && normalizedKey != 'undefined'
               ? normalizedKey
               : undefined;
-          console.log('NORM:', normalizedKey, normalizedValue);
+          // console.log('NORM:', normalizedKey, normalizedValue);
           const newPath = await Generator.getImportPath(
             imports,
             normalizedValue || normalizedKey,
             path
           );
 
-          console.log(
-            'NEW PATH:',
-            normalizedKey,
-            normalizedValue,
-            newPath,
-            path
-          );
+          // console.log(
+          //   'NEW PATH:',
+          //   normalizedKey,
+          //   normalizedValue,
+          //   newPath,
+          //   path
+          // );
 
           if (newPath !== path) {
             normalizedValue = await Generator.getObjectString(
@@ -662,7 +662,7 @@ class Generator {
     type?: string,
     path?: string
   ) {
-    console.log('IMPORTS:', imports, type, path);
+    // console.log('IMPORTS:', imports, type, path);
     if (imports)
       for (const aImport of imports) {
         for (const element of aImport.elements) {

@@ -563,7 +563,7 @@ class Extractor {
     let value = elements?.[1]?.trim();
     const gArray = Extractor.isArray(value);
     const isArray = gArray && gArray[0];
-    console.log('isArray', isArray, gArray, value);
+    // console.log('isArray', isArray, gArray, value);
     value = isArray ? gArray[0] : value;
     value = isArray
       ? { array: Extractor.extract(value) }
@@ -743,7 +743,7 @@ class Extractor {
     const objects = Extractor.filterObject(newString || '');
 
     // console.log('cleanObject objects', objects, objects.length);
-    console.log('cleanObject init', toReplace, newString);
+    // console.log('cleanObject init', toReplace, newString);
 
     for (const object of objects) {
       const currentString = object.trim();
@@ -753,7 +753,7 @@ class Extractor {
         object: options.object,
       });
     }
-    console.error('cleanObject end', options.object);
+    // console.error('cleanObject end', options.object);
     return options.object;
   }
 
