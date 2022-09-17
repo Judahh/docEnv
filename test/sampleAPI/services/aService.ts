@@ -17,7 +17,13 @@ export default class AService extends BaseService<
     d0?: string;
   },
   {
+    /**
+     * Token of A
+     */
     token?: string;
+    /**
+     * Key of A
+     */
     key?: string;
     name?: string;
     levelId?: number;
@@ -33,6 +39,11 @@ export default class AService extends BaseService<
     d2?: string;
   }
 > {
+  /**
+   * Create A
+   * @param input - Input for creating A
+   * @param input.name - Name of A
+   */
   async create(
     input: IInputCreate<
       {

@@ -1,0 +1,24 @@
+{
+  "tags": [
+    { "name": "B", "value": "Endpoints of B" },
+    { "name": "C", "value": "Endpoints of C" }
+  ],
+  "path2Name": {
+    "methods": {
+      "create": {
+        "tags": ["B"],
+        "description": "Create a new B",
+        "input": {
+          "name": {
+            "description": "Name of B"
+          }
+        },
+        "output": {
+          "name": {
+            "description": "Name of B"
+          }
+        }
+      }
+    }
+  }
+}

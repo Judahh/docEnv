@@ -22,4 +22,9 @@ export default class CService extends BaseService<CFilter, CInput, COutput> {
   ): Promise<IOutput<CFilter, CInput, COutput>> {
     return {};
   }
+
+  /**
+   * @of - delete
+   * Delete A
+   */
 }
