@@ -107,8 +107,8 @@ interface Swagger {
   tags?: Tag[];
   paths: { [key: string]: Path };
   components?: {
-    schemas: { [key: string]: Schema };
-    securitySchemes: { [key: string]: SecurityScheme };
+    schemas?: { [key: string]: Schema };
+    securitySchemes?: { [key: string]: SecurityScheme };
   };
 }
 

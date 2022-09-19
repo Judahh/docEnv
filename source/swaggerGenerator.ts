@@ -1,29 +1,236 @@
 import { Parsed, Route } from './models/parsed';
-import { Swagger } from './models/swagger';
+import { Parameter, Schema, Swagger } from './models/swagger';
 
 class SwaggerGenerator {
-  static generateFromMethodName(
+  static generateHeaderParameters(receivedSwagger: Swagger): {
+    parameters: Array<Parameter>;
+    swagger: Swagger;
+  } {
+    const swagger = receivedSwagger;
+    if (!swagger.components) swagger.components = {};
+    if (!swagger.components.schemas) swagger.components.schemas = {};
+    if (!swagger.components.schemas.page) {
+      swagger.components.schemas.page = {
+        type: 'integer',
+        format: 'int32',
+      };
+    }
+    if (!swagger.components.schemas.pageSize) {
+      swagger.components.schemas.pageSize = {
+        type: 'integer',
+        format: 'int32',
+      };
+    }
+    if (!swagger.components.schemas.pages) {
+      swagger.components.schemas.pages = {
+        type: 'integer',
+        format: 'int32',
+      };
+    }
+    return {
+      parameters: [
+        {
+          name: 'page',
+          in: 'header',
+          schema: {
+            $ref: `#/components/schemas/page`,
+          },
+        },
+        {
+          name: 'pageSize',
+          in: 'header',
+          schema: {
+            $ref: `#/components/schemas/pageSize`,
+          },
+        },
+        {
+          name: 'pages',
+          in: 'header',
+          schema: {
+            $ref: `#/components/schemas/pages`,
+          },
+        },
+      ],
+      swagger,
+    };
+  }
+  static generateParameters(
     route: Route,
-    key: string,
+    name: string,
+    crud: string,
+    receivedSwagger: Swagger
+  ) {
+    const method = route.methods[crud];
+    const input = method.input;
+    const headerParameters = this.generateHeaderParameters(receivedSwagger);
+    const parameters: Array<Parameter> = headerParameters.parameters;
+    const swagger = headerParameters.swagger;
+    for (const key in input) {
+      if (Object.prototype.hasOwnProperty.call(input, key)) {
+        const element = input[key];
+        const schema = this.generateSchema(element, swagger, key);
+        if (key === 'id') {
+          parameters.push({
+            name: key,
+            in: 'path',
+            required: true,
+            schema: {
+              $ref: schema.$ref,
+            },
+          });
+        }
+        parameters.push({
+          name: key,
+          in: 'path',
+          schema: {
+            $ref: schema.$ref,
+          },
+        });
+      }
+    }
+    swagger.paths[route.path][name].parameters = parameters;
+    return swagger;
+  }
+
+  static generateSchema(
+    element: any,
+    receivedSwagger: Swagger,
+    name?: string
+  ): { swagger: Swagger; $ref: string; name?: string } {
+    let swagger = receivedSwagger;
+    const schema: Schema = {
+      type: typeof element,
+    };
+    if (typeof element === 'object') {
+      schema.properties = {};
+      for (const key in element) {
+        if (Object.prototype.hasOwnProperty.call(element, key)) {
+          const element2 = element[key];
+          const nS = this.generateSchema(element2, swagger, key);
+          swagger = nS.swagger;
+          schema.properties[key].$ref = nS.$ref;
+        }
+      }
+    }
+    if (!swagger.components) swagger.components = {};
+    if (!swagger.components.schemas) swagger.components.schemas = {};
+
+    const found = this.findSchema(swagger?.components?.schemas, element, name);
+    const $ref = found
+      ? found.$ref
+        ? found.$ref
+        : found.index
+        ? `#/components/schemas/${name}-${found.index}`
+        : `#/components/schemas/${name}`
+      : `#/components/schemas/${name}`;
+
+    if (!found) swagger.components.schemas[`${name}`] = schema;
+    return {
+      swagger,
+      $ref,
+      name,
+    };
+  }
+  static checkSchema(
+    schema?: Schema,
+    name?: string,
+    newSchema?: any,
+    newName?: string,
+    receivedIndex?: number
+  ): { index?: number; $ref?: string } | undefined {
+    let index: number | undefined = receivedIndex || 0;
+    if (name && name.split('-')[0] === newName) {
+      const currentIndex = parseInt(name.split('-')[1] || '0');
+      if (currentIndex >= index) index = currentIndex || 0 + 1;
+    }
+    if (
+      schema?.type === newSchema?.type &&
+      schema?.format === newSchema?.format
+    ) {
+      for (const key in schema?.properties) {
+        if (Object.prototype.hasOwnProperty.call(schema, key)) {
+          const property = schema?.[key];
+          const found = this.checkSchema(
+            property,
+            key,
+            newSchema.properties[key],
+            key
+          );
+          if (found?.$ref) continue;
+          else {
+            if (index === 0) return undefined;
+            else return { index };
+          }
+        }
+      }
+      if (schema?.items && newSchema.items) {
+        const found = this.checkSchema(
+          schema?.items,
+          undefined,
+          newSchema.items,
+          undefined
+        );
+        if (found?.$ref) return { $ref: schema.$ref };
+      } else {
+        if (!schema?.items && !newSchema.items) {
+          return { $ref: schema?.$ref };
+        }
+      }
+    }
+    if (index === 0) index = undefined;
+    return index ? { index } : undefined;
+  }
+  static findSchema(
+    schemas?: { [key: string]: Schema },
+    newSchema?: any,
+    name?: string
+  ): { index?: number; $ref?: string } | undefined {
+    if (schemas == undefined) return undefined;
+    else {
+      const index = 0;
+      for (const key in schemas) {
+        if (Object.prototype.hasOwnProperty.call(schemas, key)) {
+          const schema = schemas[key];
+          const found = this.checkSchema(schema, key, newSchema, name, index);
+          if (found) return found;
+        }
+      }
+    }
+  }
+
+  static generateMethod(
+    route: Route,
+    name: string,
+    crud: string,
     receivedSwagger: Swagger
   ): Swagger {
     const swagger = receivedSwagger;
-    const method = route.methods[key];
-    if (method)
-      for (const key2 in method.http) {
-        if (Object.prototype.hasOwnProperty.call(method.http, key2)) {
-          const element3 = method.http[key2];
-          swagger.paths[method.path][element3] = {
-            requestBody: {
-              content: {
-                'application/json': {
-                  schema: {
-                    $ref: `#/components/schemas/${method.name}-${key}`,
-                  },
-                },
-              },
+    swagger.paths[route.path][name] = {
+      requestBody: {
+        content: {
+          'application/json': {
+            schema: {
+              $ref: `#/components/schemas/${route.name}-${crud}`,
             },
-          };
+          },
+        },
+      },
+    };
+    return swagger;
+  }
+
+  static generateFromMethodName(
+    route: Route,
+    crud: string,
+    receivedSwagger: Swagger
+  ): Swagger {
+    let swagger = receivedSwagger;
+    const method = route.methods[crud];
+    if (method)
+      for (const key in method.http) {
+        if (Object.prototype.hasOwnProperty.call(method.http, key)) {
+          const name = method.http[key];
+          swagger = this.generateMethod(route, name, crud, swagger);
         }
       }
 
