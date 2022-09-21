@@ -446,14 +446,17 @@ class Generator {
     baseContent: string,
     isTriple = false
   ) {
+    console.log('getParams');
     const groupObject = '\\s*?((?:.|\\s)*?)\\s*?';
     const groups = isTriple
       ? `<${groupObject}(?:,${groupObject}){0,1}(?:,${groupObject}){0,1}>`
       : `<${groupObject}(?:,${groupObject}){0,1}>`;
     const sRegex = `\\s*${prefix}\\s*${groups}`;
     const regex = new RegExp(sRegex, 'i');
+    console.log('getParams1', sRegex, content);
     const match: RegExpMatchArray | undefined =
       content.match(regex) || undefined;
+    console.log('getParams2');
 
     const filter = match?.[1]?.trim();
     const input = match?.[2]?.trim();
@@ -461,12 +464,13 @@ class Generator {
 
     // console.log('getParams baseContent:', baseContent);
     // console.log('getParams content:', content);
-    // console.log('getParams filter:', filter);
-    // console.log('getParams input:', input);
-    // console.log('getParams output:', output);
+    console.log('getParams filter:', filter);
+    console.log('getParams input:', input);
+    console.log('getParams output:', output);
     const filterComments = Generator.getParamComments(baseContent, filter);
     const inputComments = Generator.getParamComments(baseContent, input);
     const outputComments = Generator.getParamComments(baseContent, output);
+    console.log('getParams outputComments:', outputComments);
     return {
       filter,
       input,
@@ -475,6 +479,19 @@ class Generator {
       inputComments,
       outputComments,
     };
+  }
+
+  static async getMethod(methodName: string, receivedContent: string) {
+    console.log('getMethod0', methodName, receivedContent);
+    const reg = `\\s*${methodName}\\s*\\(`;
+    const regex = new RegExp(reg, 'imgs');
+    const content = receivedContent?.split(regex)[1];
+    let match = content?.match(regex)?.[0];
+    const reg2 = `\\s*\\w\\s*\\(`;
+    const regex2 = new RegExp(reg2, 'imgs');
+    match = (match || '') + match?.split(regex2)[0];
+    console.log('getMethod2', match);
+    return match || '';
   }
 
   static async generateService(
@@ -489,6 +506,7 @@ class Generator {
     }
   ): Promise<{ path: string; name: string }> {
     const baseContent = await readFile(path, 'utf8');
+    console.log('generateService0');
     const content = Generator.removeComments(baseContent);
     const {
       filter,
@@ -504,9 +522,12 @@ class Generator {
       true
     );
 
+    console.log('generateService1');
+
     for (const key in page.methods) {
       if (Object.prototype.hasOwnProperty.call(page.methods, key)) {
         const method = page.methods[key];
+        const methodContent = await Generator.getMethod(key, content);
         const {
           filter: currentFilter1,
           input: currentInput1,
@@ -516,7 +537,7 @@ class Generator {
           outputComments: currentOutputComments,
         } = Generator.getParams(
           `${key}\\s*\\(\\s*input\\s*:\\s*IInput${key}\\s*<\\s*?(?:(?:.|\\s)*?)\\s*?(?:,\\s*?(?:(?:.|\\s)*?)\\s*?)*>\\s*\\)\\s*:\\s*(?:Promise\\s*<\\s*)*IOutput`,
-          content,
+          methodContent,
           baseContent,
           true
         );
@@ -545,7 +566,7 @@ class Generator {
         method.outputComments = currentOutputComments || outputComments;
       }
     }
-
+    console.log('generateService2');
     return await Generator.generateModels(path, page);
   }
 
@@ -585,6 +606,7 @@ class Generator {
       baseOutput?: string | undefined;
     }
   ): Promise<{ path: string; name: string }> {
+    console.log('generateModels');
     // console.log('IMPORTS:', imports);
     // console.log('PAGE:', page);
     for (const key in page.methods) {
@@ -605,6 +627,7 @@ class Generator {
         // console.log('Method:', method);
       }
     }
+    console.log('generateModels end');
     return page;
   }
 
