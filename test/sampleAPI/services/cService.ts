@@ -25,6 +25,6 @@ export default class CService extends BaseService<CFilter, CInput, COutput> {
 
   /**
    * @of - delete
-   * Delete A
+   * Delete C
    */
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Parsed, Route } from './models/parsed';
 import { Parameter, Schema, Swagger } from './models/swagger';
 
@@ -54,6 +55,7 @@ class SwaggerGenerator {
       swagger,
     };
   }
+
   static generateParameters(
     route: Route,
     name: string,
@@ -88,27 +90,72 @@ class SwaggerGenerator {
         });
       }
     }
+    if (!swagger?.paths?.[route.path]?.[name])
+      swagger.paths[route.path][name] = {};
     swagger.paths[route.path][name].parameters = parameters;
     return swagger;
   }
 
   static generateSchema(
-    element: any,
+    receivedElement: any,
     receivedSwagger: Swagger,
     name?: string
   ): { swagger: Swagger; $ref: string; name?: string } {
     let swagger = receivedSwagger;
-    const schema: Schema = {
-      type: typeof element,
-    };
-    if (typeof element === 'object') {
+    const element = receivedElement;
+    console.log('generateSchema', element, name);
+    let schema: Schema;
+    if (name === 'or') {
+      schema = {
+        type: 'array',
+        items: {
+          oneOf: element.map((e) => ({ type: typeof e })),
+        },
+      };
+    } else if (name === 'and') {
+      schema = {
+        type: 'array',
+        items: {
+          allOf: element.map((e) => ({ type: typeof e })),
+        },
+      };
+    } else {
+      schema = {
+        type: typeof element,
+      };
+    }
+    if (typeof element === 'object' && schema?.type !== 'array') {
+      console.log('object', element);
       schema.properties = {};
       for (const key in element) {
         if (Object.prototype.hasOwnProperty.call(element, key)) {
           const element2 = element[key];
           const nS = this.generateSchema(element2, swagger, key);
           swagger = nS.swagger;
+          if (!schema?.properties?.[key]) schema.properties[key] = {};
           schema.properties[key].$ref = nS.$ref;
+        }
+      }
+    } else if (
+      // @ts-ignore
+      schema?.items?.oneOf ||
+      // @ts-ignore
+      schema?.items?.anyOf ||
+      // @ts-ignore
+      schema?.items?.allOf
+    ) {
+      console.log('else', element);
+      const items = // @ts-ignore
+        schema?.items?.oneOf ||
+        // @ts-ignore
+        schema?.items?.anyOf ||
+        // @ts-ignore
+        schema?.items?.allOf;
+      for (const item of items) {
+        const nS = this.generateSchema(item, swagger);
+        swagger = nS.swagger;
+        if (nS.$ref) {
+          item.$ref = nS.$ref;
         }
       }
     }
@@ -131,6 +178,7 @@ class SwaggerGenerator {
       name,
     };
   }
+
   static checkSchema(
     schema?: Schema,
     name?: string,
@@ -163,14 +211,23 @@ class SwaggerGenerator {
           }
         }
       }
-      if (schema?.items && newSchema.items) {
-        const found = this.checkSchema(
-          schema?.items,
-          undefined,
-          newSchema.items,
-          undefined
-        );
-        if (found?.$ref) return { $ref: schema.$ref };
+      if (newSchema?.items) {
+        const items = // @ts-ignore
+          schema?.items?.oneOf ||
+          // @ts-ignore
+          schema?.items?.anyOf ||
+          // @ts-ignore
+          schema?.items?.allOf ||
+          schema?.items;
+        const newItems = // @ts-ignore
+          newSchema?.items?.oneOf ||
+          // @ts-ignore
+          newSchema?.items?.anyOf ||
+          // @ts-ignore
+          newSchema?.items?.allOf ||
+          newSchema?.items;
+        const found = this.findSchema(items, newItems);
+        if (found?.$ref) return { $ref: schema?.$ref };
       } else {
         if (!schema?.items && !newSchema.items) {
           return { $ref: schema?.$ref };
@@ -180,6 +237,7 @@ class SwaggerGenerator {
     if (index === 0) index = undefined;
     return index ? { index } : undefined;
   }
+
   static findSchema(
     schemas?: { [key: string]: Schema },
     newSchema?: any,
@@ -204,18 +262,9 @@ class SwaggerGenerator {
     crud: string,
     receivedSwagger: Swagger
   ): Swagger {
-    const swagger = receivedSwagger;
-    swagger.paths[route.path][name] = {
-      requestBody: {
-        content: {
-          'application/json': {
-            schema: {
-              $ref: `#/components/schemas/${route.name}-${crud}`,
-            },
-          },
-        },
-      },
-    };
+    let swagger = this.generateParameters(route, name, crud, receivedSwagger);
+    swagger = this.generateSchema(route.methods[crud].output, swagger)?.swagger;
+    swagger = this.generateSchema(route.methods[crud].input, swagger)?.swagger;
     return swagger;
   }
 
@@ -236,6 +285,7 @@ class SwaggerGenerator {
 
     return swagger;
   }
+
   static generateFromKey(
     parsed: Parsed,
     key: string,

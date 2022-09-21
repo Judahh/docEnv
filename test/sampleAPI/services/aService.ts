@@ -14,6 +14,9 @@ export default class AService extends BaseService<
     name?: string;
     levelId?: number;
     level?: string;
+    /**
+     * Test of D0
+     */
     d0?: string;
   },
   {
@@ -33,6 +36,9 @@ export default class AService extends BaseService<
   {
     token?: string;
     key?: string;
+    /**
+     * Name of A
+     */
     name?: string;
     levelId?: number;
     level?: string;
@@ -113,30 +119,7 @@ export default class AService extends BaseService<
         u1?: string;
       }
     >
-  ): Promise<
-    IOutput<
-      {
-        token?: string;
-        key?: string;
-        name?: string;
-        levelId?: number;
-        level?: string;
-        u2?: string;
-      },
-      {
-        token?: string;
-        key?: string;
-        name?: string;
-        levelId?: number;
-        level?: string;
-        u3?: string;
-      },
-      {
-        token?: string;
-        u4?: string;
-      }
-    >
-  > {
+  ) {
     return {};
   }
 }

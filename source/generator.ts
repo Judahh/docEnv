@@ -359,7 +359,93 @@ class Generator {
     return pages;
   }
 
-  static getParams(prefix: string, content: string, isTriple = false) {
+  static formatComments(receivedComments?: { [name: string]: string }):
+    | {
+        [name: string]: {
+          description?: string;
+          ofs?: string[];
+          examples?: string[];
+        };
+      }
+    | undefined {
+    const comments: {
+      [name: string]: {
+        description?: string;
+        ofs?: string[];
+        examples?: string[];
+      };
+    } = {};
+    if (receivedComments)
+      for (const key in receivedComments)
+        if (Object.prototype.hasOwnProperty.call(receivedComments, key)) {
+          const receivedComment = receivedComments[key];
+          const comment: {
+            description?: string;
+            ofs?: string[];
+            examples?: string[];
+          } = {};
+          const lines = receivedComment.split('\n');
+          for (const line of lines) {
+            if (line.includes('@example')) {
+              const example = line.replace('@example', '').trim();
+              if (comment.examples == undefined) comment.examples = [];
+              comment.examples.push(example);
+            } else if (line.includes('@of')) {
+              const of = line.replace('@of', '').trim();
+              if (comment.ofs == undefined) comment.ofs = [];
+              comment.ofs.push(of);
+            } else {
+              if (comment.description == undefined) comment.description = '';
+              comment.description += line.trim();
+            }
+          }
+          if (!comment.ofs || comment.ofs.length === 0) comments[key] = comment;
+          else for (const of of comment.ofs) comments[of] = comment;
+        }
+    return Object.keys(comments).length == 0 ? undefined : comments;
+  }
+
+  static getParamComments(baseContent: string, param?: string) {
+    const subParams = param?.split(RegExp('\\;|\\,|\\n'));
+    let comments: any = {};
+    if (subParams) {
+      for (const subParam of subParams) {
+        const find = subParam.replace('?', '\\?').trim();
+        if (find && find !== '') {
+          const rep = `(\\/\\*[\\s\\S]*?\\*\\/)\\s*${find}`;
+          // console.log('rep', rep);
+          const regex = new RegExp(rep, 'mi');
+          const matches = baseContent
+            .match(regex)?.[1]
+            .split('/*')
+            .filter((a) => a && a.trim() !== '');
+          const match = matches?.[matches.length - 1]
+            .split('*/')[0]
+            .trim()
+            .replaceAll(/^\s*(\*)\s*/gim, '')
+            .trim()
+            .replaceAll(/^\s*(\*)\s*/gim, '')
+            .trim();
+          // console.log('match', match);
+          const name = find
+            .split(RegExp(':|=|;'))[0]
+            .replace('\\?', '')
+            .replace('?', '')
+            .trim();
+          if (match && name !== '') comments[name] = match;
+        }
+      }
+      if (Object.keys(comments).length == 0) comments = undefined;
+    }
+    return comments ? Generator.formatComments(comments) : undefined;
+  }
+
+  static getParams(
+    prefix: string,
+    content: string,
+    baseContent: string,
+    isTriple = false
+  ) {
     const groupObject = '\\s*?((?:.|\\s)*?)\\s*?';
     const groups = isTriple
       ? `<${groupObject}(?:,${groupObject}){0,1}(?:,${groupObject}){0,1}>`
@@ -372,7 +458,23 @@ class Generator {
     const filter = match?.[1]?.trim();
     const input = match?.[2]?.trim();
     const output = match?.[3]?.trim();
-    return { filter, input, output };
+
+    // console.log('getParams baseContent:', baseContent);
+    // console.log('getParams content:', content);
+    // console.log('getParams filter:', filter);
+    // console.log('getParams input:', input);
+    // console.log('getParams output:', output);
+    const filterComments = Generator.getParamComments(baseContent, filter);
+    const inputComments = Generator.getParamComments(baseContent, input);
+    const outputComments = Generator.getParamComments(baseContent, output);
+    return {
+      filter,
+      input,
+      output,
+      filterComments,
+      inputComments,
+      outputComments,
+    };
   }
 
   static async generateService(
@@ -388,9 +490,17 @@ class Generator {
   ): Promise<{ path: string; name: string }> {
     const baseContent = await readFile(path, 'utf8');
     const content = Generator.removeComments(baseContent);
-    const { filter, input, output } = Generator.getParams(
+    const {
+      filter,
+      input,
+      output,
+      filterComments,
+      inputComments,
+      outputComments,
+    } = Generator.getParams(
       `${page.service}\\s*extends\\s*BaseService`,
       content,
+      baseContent,
       true
     );
 
@@ -401,16 +511,25 @@ class Generator {
           filter: currentFilter1,
           input: currentInput1,
           output: currentOutput,
+          filterComments: currentFilterComments1,
+          inputComments: currentInputComments1,
+          outputComments: currentOutputComments,
         } = Generator.getParams(
           `${key}\\s*\\(\\s*input\\s*:\\s*IInput${key}\\s*<\\s*?(?:(?:.|\\s)*?)\\s*?(?:,\\s*?(?:(?:.|\\s)*?)\\s*?)*>\\s*\\)\\s*:\\s*(?:Promise\\s*<\\s*)*IOutput`,
           content,
+          baseContent,
           true
         );
-        const { filter: currentFilter2, input: currentInput2 } =
-          Generator.getParams(
-            `${key}\\s*\\(\\s*input\\s*:\\s*IInput${key}`,
-            content
-          );
+        const {
+          filter: currentFilter2,
+          input: currentInput2,
+          filterComments: currentFilterComments2,
+          inputComments: currentInputComments2,
+        } = Generator.getParams(
+          `${key}\\s*\\(\\s*input\\s*:\\s*IInput${key}`,
+          content,
+          baseContent
+        );
         const currentFilter = currentFilter1 || currentFilter2;
         const currentInput = currentInput1 || currentInput2;
         method.filter =
@@ -419,6 +538,11 @@ class Generator {
           currentInput ||
           (key !== 'read' && key !== 'delete' ? input : currentInput);
         method.output = currentOutput || output;
+        method.filterComments =
+          currentFilterComments1 || currentFilterComments2 || filterComments;
+        method.inputComments =
+          currentInputComments1 || currentInputComments2 || inputComments;
+        method.outputComments = currentOutputComments || outputComments;
       }
     }
 

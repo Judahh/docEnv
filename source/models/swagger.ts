@@ -87,7 +87,11 @@ interface Schema {
   description?: string;
   example?: Example;
   format?: string;
-  items?: Schema;
+  items?:
+    | Schema
+    | { oneOf: Schema[] }
+    | { anyOf: Schema[] }
+    | { allOf: Schema[] };
   $ref?: string;
   properties?: { [key: string]: Schema };
 }
