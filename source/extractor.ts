@@ -535,7 +535,7 @@ class Extractor {
   }
 
   public static cleanAssignment(options: { string?: string; object? }) {
-    // console.log('cleanAssignment', options);
+    console.log('cleanAssignment', options);
     const toSplit = new RegExp(`[${Extractor.equals}]`, 'gm');
     const match = options?.string?.match(toSplit);
     let elements = options?.string?.split(toSplit);
@@ -900,6 +900,87 @@ class Extractor {
     return Extractor.getValue(string, hiddenPrecedences);
   }
 
+  static formatComments(receivedComments?: { [name: string]: string }):
+    | {
+        [name: string]: {
+          description?: string;
+          ofs?: string[];
+          examples?: string[];
+        };
+      }
+    | undefined {
+    const comments: {
+      [name: string]: {
+        description?: string;
+        ofs?: string[];
+        examples?: string[];
+      };
+    } = {};
+    if (receivedComments)
+      for (const key in receivedComments)
+        if (Object.prototype.hasOwnProperty.call(receivedComments, key)) {
+          const receivedComment = receivedComments[key];
+          const comment: {
+            description?: string;
+            ofs?: string[];
+            examples?: string[];
+          } = {};
+          const lines = receivedComment.split('\n');
+          for (const line of lines) {
+            if (line.includes('@example')) {
+              const example = line.replace('@example', '').trim();
+              if (comment.examples == undefined) comment.examples = [];
+              comment.examples.push(example);
+            } else if (line.includes('@of')) {
+              const of = line.replace('@of', '').trim();
+              if (comment.ofs == undefined) comment.ofs = [];
+              comment.ofs.push(of);
+            } else {
+              if (comment.description == undefined) comment.description = '';
+              comment.description += line.trim();
+            }
+          }
+          if (!comment.ofs || comment.ofs.length === 0) comments[key] = comment;
+          else for (const of of comment.ofs) comments[of] = comment;
+        }
+    return Object.keys(comments).length == 0 ? undefined : comments;
+  }
+
+  static getParamComments(baseContent: string, param?: string) {
+    const subParams = param?.split(RegExp('\\;|\\,|\\n'));
+    let comments: any = {};
+    if (subParams) {
+      for (const subParam of subParams) {
+        const find = subParam.replace('?', '\\?').trim();
+        if (find && find !== '') {
+          const rep = `(\\/\\*[\\s\\S]*?\\*\\/)\\s*${find}`;
+          // console.log('rep', rep);
+          const regex = new RegExp(rep, 'mi');
+          const matches = baseContent
+            .match(regex)?.[1]
+            .split('/*')
+            .filter((a) => a && a.trim() !== '');
+          const match = matches?.[matches.length - 1]
+            .split('*/')[0]
+            .trim()
+            .replaceAll(/^\s*(\*)\s*/gim, '')
+            .trim()
+            .replaceAll(/^\s*(\*)\s*/gim, '')
+            .trim();
+          // console.log('match', match);
+          const name = find
+            .split(RegExp(':|=|;'))[0]
+            .replace('\\?', '')
+            .replace('?', '')
+            .trim();
+          if (match && name !== '') comments[name] = match;
+        }
+      }
+      if (Object.keys(comments).length == 0) comments = undefined;
+    }
+    return comments ? Extractor.formatComments(comments) : undefined;
+  }
+
   public static bundler(
     receivedString: string,
     receivedPrecedence: Precedence,
@@ -908,6 +989,20 @@ class Extractor {
     toHide?: boolean,
     filterPrecedence?: Precedence
   ) {
+    // if (!newPath) {
+    //   const comments = Extractor.getParamComments(
+    //     file.withComments,
+    //     normalizedValue || normalizedKey
+    //   );
+    //   console.log(
+    //     'COMMENTS:',
+    //     nameOrObjectString,
+    //     normalizedKey,
+    //     normalizedValue,
+    //     comments,
+    //     file.withComments
+    //   );
+    // }
     let string = '' + receivedString;
     const precedence = receivedPrecedence;
     const stack: Array<number> = [];
@@ -932,15 +1027,15 @@ class Extractor {
     string = splitter ? string.split(splitter)[0].trim() : string.trim();
 
     const positions = Extractor.getPosistions(precedence);
-    // console.log(
-    //   'Bundler S:',
-    //   Precedence[precedence],
-    //   string,
-    //   toHide,
-    //   positions,
-    //   splitter,
-    //   toSplit
-    // );
+    console.log(
+      'Bundler S:',
+      Precedence[precedence],
+      string,
+      toHide,
+      positions,
+      splitter,
+      toSplit
+    );
     if (precedence === Precedence.assignment) {
       // if (toHide) return string;
       return Extractor.extract(string, undefined, precedence + 1, toHide);

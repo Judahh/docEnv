@@ -34,7 +34,7 @@ export default class AService extends BaseService<
     d1?: string;
   },
   {
-    token?: string;
+    token: string;
     key?: string;
     /**
      * Name of A

@@ -60,7 +60,7 @@ const gen0 = {
           u1: { or: ['string', 'undefined'] },
         },
         output: {
-          token: { or: ['string', 'undefined'] },
+          token: 'string',
           key: { or: ['string', 'undefined'] },
           name: { or: ['string', 'undefined'] },
           levelId: { or: ['number', 'undefined'] },

@@ -80,11 +80,10 @@ class Generator {
         name: string;
       };
     } = rRoutes || {};
-    let content = await readFile(path, 'utf8');
-    content = Generator.removeComments(content);
-    if (content.includes('request('))
+    const file = await Generator.getFileString(path);
+    if (file.withoutComments.includes('request('))
       return await Generator.generateRouteElement(
-        '(' + content.split('request(')[1].split(';')[0],
+        '(' + file.withoutComments.split('request(')[1].split(';')[0],
         path,
         routes
       );
@@ -200,7 +199,8 @@ class Generator {
       : page?.controllerPath?.replace(/^\.\.\//gm, currentPath + '/../') +
         '.ts';
     if (path) {
-      let content = Generator.removeComments(await readFile(path, 'utf8'))
+      const file = await Generator.getFileString(path);
+      let content = file.withoutComments
         .split('extends')[1]
         .split('{')[0]
         .trim();
@@ -231,8 +231,8 @@ class Generator {
       name: string;
     };
   }> {
-    const route = Generator.removeComments(await readFile(routePath, 'utf8'));
-    route.replace(
+    const file = await Generator.getFileString(routePath);
+    file.withoutComments.replace(
       /\.controller\.(\w+)\s*=\s*(?:new)*\s*(.+?)\(\w*\);/gm,
       (a, group1, group2) => {
         `{group1: ${group1}, group2: ${group2}}`;
@@ -240,7 +240,7 @@ class Generator {
         const sRegex = `import\\s*\\{*\\s${group2}\\s*\\}*\\sfrom*\\s(.*?);`;
         const regex = new RegExp(sRegex);
         const match: RegExpMatchArray | undefined =
-          route.match(regex) || undefined;
+          file.withoutComments.match(regex) || undefined;
         const path = match?.[1].replace(/['"]/g, '');
         pages[group1.trim()]['controllerPath'] = path;
         return a;
@@ -359,91 +359,12 @@ class Generator {
     return pages;
   }
 
-  static formatComments(receivedComments?: { [name: string]: string }):
-    | {
-        [name: string]: {
-          description?: string;
-          ofs?: string[];
-          examples?: string[];
-        };
-      }
-    | undefined {
-    const comments: {
-      [name: string]: {
-        description?: string;
-        ofs?: string[];
-        examples?: string[];
-      };
-    } = {};
-    if (receivedComments)
-      for (const key in receivedComments)
-        if (Object.prototype.hasOwnProperty.call(receivedComments, key)) {
-          const receivedComment = receivedComments[key];
-          const comment: {
-            description?: string;
-            ofs?: string[];
-            examples?: string[];
-          } = {};
-          const lines = receivedComment.split('\n');
-          for (const line of lines) {
-            if (line.includes('@example')) {
-              const example = line.replace('@example', '').trim();
-              if (comment.examples == undefined) comment.examples = [];
-              comment.examples.push(example);
-            } else if (line.includes('@of')) {
-              const of = line.replace('@of', '').trim();
-              if (comment.ofs == undefined) comment.ofs = [];
-              comment.ofs.push(of);
-            } else {
-              if (comment.description == undefined) comment.description = '';
-              comment.description += line.trim();
-            }
-          }
-          if (!comment.ofs || comment.ofs.length === 0) comments[key] = comment;
-          else for (const of of comment.ofs) comments[of] = comment;
-        }
-    return Object.keys(comments).length == 0 ? undefined : comments;
-  }
-
-  static getParamComments(baseContent: string, param?: string) {
-    const subParams = param?.split(RegExp('\\;|\\,|\\n'));
-    let comments: any = {};
-    if (subParams) {
-      for (const subParam of subParams) {
-        const find = subParam.replace('?', '\\?').trim();
-        if (find && find !== '') {
-          const rep = `(\\/\\*[\\s\\S]*?\\*\\/)\\s*${find}`;
-          // console.log('rep', rep);
-          const regex = new RegExp(rep, 'mi');
-          const matches = baseContent
-            .match(regex)?.[1]
-            .split('/*')
-            .filter((a) => a && a.trim() !== '');
-          const match = matches?.[matches.length - 1]
-            .split('*/')[0]
-            .trim()
-            .replaceAll(/^\s*(\*)\s*/gim, '')
-            .trim()
-            .replaceAll(/^\s*(\*)\s*/gim, '')
-            .trim();
-          // console.log('match', match);
-          const name = find
-            .split(RegExp(':|=|;'))[0]
-            .replace('\\?', '')
-            .replace('?', '')
-            .trim();
-          if (match && name !== '') comments[name] = match;
-        }
-      }
-      if (Object.keys(comments).length == 0) comments = undefined;
-    }
-    return comments ? Generator.formatComments(comments) : undefined;
-  }
-
   static getParams(
     prefix: string,
-    content: string,
-    baseContent: string,
+    file: {
+      withComments: string;
+      withoutComments: string;
+    },
     isTriple = false
   ) {
     // console.log('getParams');
@@ -455,7 +376,7 @@ class Generator {
     const regex = new RegExp(sRegex, 'i');
     // console.log('getParams1', sRegex, content);
     const match: RegExpMatchArray | undefined =
-      content.match(regex) || undefined;
+      file.withoutComments.match(regex) || undefined;
     // console.log('getParams2');
 
     let filter = match?.[1]?.trim();
@@ -471,17 +392,14 @@ class Generator {
     // console.log('getParams filter:', filter);
     // console.log('getParams input:', input);
     // console.log('getParams output:', output);
-    const filterComments = Generator.getParamComments(baseContent, filter);
-    const inputComments = Generator.getParamComments(baseContent, input);
-    const outputComments = Generator.getParamComments(baseContent, output);
     // console.log('getParams outputComments:', outputComments);
     return {
       filter,
       input,
       output,
-      filterComments,
-      inputComments,
-      outputComments,
+      // filterComments,
+      // inputComments,
+      // outputComments,
     };
   }
 
@@ -510,20 +428,17 @@ class Generator {
       baseOutput?: string;
     }
   ): Promise<{ path: string; name: string }> {
-    const baseContent = await readFile(path, 'utf8');
-    // console.log('generateService0');
-    const content = Generator.removeComments(baseContent);
+    const file = await Generator.getFileString(path);
     const {
       filter,
       input,
       output,
-      filterComments,
-      inputComments,
-      outputComments,
+      // filterComments,
+      // inputComments,
+      // outputComments,
     } = Generator.getParams(
       `${page.service}\\s*extends\\s*BaseService`,
-      content,
-      baseContent,
+      file,
       true
     );
 
@@ -532,26 +447,31 @@ class Generator {
     for (const key in page.methods) {
       if (Object.prototype.hasOwnProperty.call(page.methods, key)) {
         const method = page.methods[key];
-        const methodContent = await Generator.getMethod(key, content);
+        const methodContent = await Generator.getMethod(
+          key,
+          file.withoutComments
+        );
         const {
           filter: currentFilter1,
           input: currentInput1,
           output: currentOutput,
-          filterComments: currentFilterComments1,
-          inputComments: currentInputComments1,
-          outputComments: currentOutputComments,
+          // filterComments: currentFilterComments1,
+          // inputComments: currentInputComments1,
+          // outputComments: currentOutputComments,
         } = Generator.getParams(
           `IOutput\\w*\\s*`,
-          methodContent,
-          baseContent,
+          { withoutComments: methodContent, withComments: file.withComments },
           true
         );
         const {
           filter: currentFilter2,
           input: currentInput2,
-          filterComments: currentFilterComments2,
-          inputComments: currentInputComments2,
-        } = Generator.getParams(`IInput\\w*\\s*`, methodContent, baseContent);
+          // filterComments: currentFilterComments2,
+          // inputComments: currentInputComments2,
+        } = Generator.getParams(`IInput\\w*\\s*`, {
+          withoutComments: methodContent,
+          withComments: file.withComments,
+        });
         const currentFilter = currentFilter1 || currentFilter2;
         const currentInput = currentInput1 || currentInput2;
         method.filter =
@@ -560,11 +480,11 @@ class Generator {
           currentInput ||
           (key !== 'read' && key !== 'delete' ? input : currentInput);
         method.output = currentOutput || output;
-        method.filterComments =
-          currentFilterComments1 || currentFilterComments2 || filterComments;
-        method.inputComments =
-          currentInputComments1 || currentInputComments2 || inputComments;
-        method.outputComments = currentOutputComments || outputComments;
+        // method.filterComments =
+        //   currentFilterComments1 || currentFilterComments2 || filterComments;
+        // method.inputComments =
+        //   currentInputComments1 || currentInputComments2 || inputComments;
+        // method.outputComments = currentOutputComments || outputComments;
         // console.log('generateService2', method, currentFilter1, currentFilter2);
       }
     }
@@ -575,7 +495,10 @@ class Generator {
   static async getImportsFromPath(path?: string) {
     const content = await Generator.getFileString(path);
     // console.log('content', content);
-    return Generator.getImports(content || '');
+    return {
+      imports: Generator.getImports(content.withoutComments),
+      ...content,
+    };
   }
 
   static getImports(content: string) {
@@ -725,7 +648,7 @@ class Generator {
   }
 
   static async getObject(nameOrObjectString?: string, path?: string) {
-    const imports = await Generator.getImportsFromPath(path);
+    const file = await Generator.getImportsFromPath(path);
     // console.log('IMPORTS:', imports);
     if (nameOrObjectString) {
       const bundled = Generator.removeSpecialCharacters(
@@ -752,7 +675,7 @@ class Generator {
               : undefined;
           // console.log('NORM:', normalizedKey, normalizedValue);
           const newPath = await Generator.getImportPath(
-            imports,
+            file.imports,
             normalizedValue || normalizedKey,
             path
           );
@@ -800,15 +723,10 @@ class Generator {
   }
 
   static async getFileString(path?: string) {
-    const baseContent = await readFile(path || '', 'utf8');
-    const content = Generator.removeComments(baseContent || '');
-    return content;
+    const withComments = (await readFile(path || '', 'utf8')) || '';
+    const withoutComments = Generator.removeComments(withComments) || '';
+    return { withoutComments, withComments };
   }
-
-  // static async getObjectString(name?: string, path?: string) {
-  //   const fileString = await Generator.getFileString(path);
-  //   return content;
-  // }
 
   static async getImportPath(
     imports?: {
@@ -830,9 +748,8 @@ class Generator {
   }
 
   static async getObjectString(element?: string, path?: string) {
-    const baseContent = await readFile(path || '', 'utf8');
-    const content = Generator.removeComments(baseContent || '');
-    const interfaces = Generator.getInterfaces(content || '');
+    const file = await Generator.getFileString(path);
+    const interfaces = Generator.getInterfaces(file.withoutComments || '');
     for (const aInterface of interfaces) {
       if (aInterface.name === element) {
         // console.log('found', aInterface.name, aInterface.content);
