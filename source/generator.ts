@@ -458,9 +458,13 @@ class Generator {
       content.match(regex) || undefined;
     console.log('getParams2');
 
-    const filter = match?.[1]?.trim();
-    const input = match?.[2]?.trim();
-    const output = match?.[3]?.trim();
+    let filter = match?.[1]?.trim();
+    let input = match?.[2]?.trim();
+    let output = match?.[3]?.trim();
+
+    filter = filter == '' ? undefined : filter;
+    input = input == '' ? undefined : input;
+    output = output == '' ? undefined : output;
 
     // console.log('getParams baseContent:', baseContent);
     // console.log('getParams content:', content);
@@ -486,10 +490,11 @@ class Generator {
     const reg = `\\s*${methodName}\\s*\\(`;
     const regex = new RegExp(reg, 'imgs');
     const content = receivedContent?.split(regex)[1];
-    let match = content?.match(regex)?.[0];
-    const reg2 = `\\s*\\w\\s*\\(`;
+    let match = receivedContent?.match(regex)?.[0];
+    console.log('getMethod1', content);
+    const reg2 = `\\s*(?:(?:public)|(?:protected)|(?:private))?\\s*(?:async)?\\s*\\w*\\s*\\(`;
     const regex2 = new RegExp(reg2, 'imgs');
-    match = (match || '') + match?.split(regex2)[0];
+    match = (match || '') + content?.split(regex2)[0];
     console.log('getMethod2', match);
     return match || '';
   }
@@ -536,7 +541,7 @@ class Generator {
           inputComments: currentInputComments1,
           outputComments: currentOutputComments,
         } = Generator.getParams(
-          `${key}\\s*\\(\\s*input\\s*:\\s*IInput${key}\\s*<\\s*?(?:(?:.|\\s)*?)\\s*?(?:,\\s*?(?:(?:.|\\s)*?)\\s*?)*>\\s*\\)\\s*:\\s*(?:Promise\\s*<\\s*)*IOutput`,
+          `IOutput\\w*\\s*`,
           methodContent,
           baseContent,
           true
@@ -546,11 +551,7 @@ class Generator {
           input: currentInput2,
           filterComments: currentFilterComments2,
           inputComments: currentInputComments2,
-        } = Generator.getParams(
-          `${key}\\s*\\(\\s*input\\s*:\\s*IInput${key}`,
-          content,
-          baseContent
-        );
+        } = Generator.getParams(`IInput\\w*\\s*`, methodContent, baseContent);
         const currentFilter = currentFilter1 || currentFilter2;
         const currentInput = currentInput1 || currentInput2;
         method.filter =
@@ -564,9 +565,10 @@ class Generator {
         method.inputComments =
           currentInputComments1 || currentInputComments2 || inputComments;
         method.outputComments = currentOutputComments || outputComments;
+        // console.log('generateService2', method, currentFilter1, currentFilter2);
       }
     }
-    console.log('generateService2');
+    console.log('generateService3');
     return await Generator.generateModels(path, page);
   }
 
