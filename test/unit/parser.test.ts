@@ -120,6 +120,7 @@ const expVars0 = {
       'DATABASE_REQUEST_TIMEOUT',
       'DATABASE_READ_REQUEST_TIMEOUT',
     ],
+    description: 'The timeout for read database requests',
     defaultValues: {
       or: [
         '{@process.env.DATABASE_REQUEST_TIMEOUT}',
@@ -133,6 +134,8 @@ const expVars0 = {
       'DATABASE_ENCRYPTION_DISABLED',
       'DATABASE_READ_ENCRYPTION_DISABLED',
     ],
+    description: 'Disable encryption for read database',
+    examples: ['true'],
     defaultValues: {
       or: [
         {
@@ -157,6 +160,11 @@ const expVars0 = {
         },
       ],
     },
+  },
+  DATABASE_ENCRYPTION_DISABLED: {
+    name: 'DATABASE_ENCRYPTION_DISABLED',
+    description: 'Disable encryption for both databases',
+    examples: ['true', '1'],
   },
 };
 
@@ -517,16 +525,14 @@ const expVars1 = {
   },
 };
 
-test('Test Simple File', async () => {
+test('Test Small File', async () => {
   const file = await readFile('./test/sample0.ts', 'utf8');
-  expect(file.length).toBe(2898);
   const vars = Parser.getSpecialVariables(file);
   expect(vars).toMatchObject(expVars0);
 });
 
-test('Test File', async () => {
+test('Test Big File', async () => {
   const file = await readFile('./test/sample1.ts', 'utf8');
-  expect(file.length).toBe(6791);
   const vars = Parser.getSpecialVariables(file);
   expect(vars).toMatchObject(expVars1);
 });

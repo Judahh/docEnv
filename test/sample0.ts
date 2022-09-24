@@ -59,11 +59,27 @@ const readDatabaseRequestTimeoutNumber = readDatabaseRequestTimeout
   ? +readDatabaseRequestTimeout
   : 60000;
 
+/**
+ * Disable encryption for read database
+ * @example true
+ */
 const readDatabaseEncryptionDisabledEnv =
   process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
   process.env.DATABASE_ENCRYPTION_DISABLED?.toLowerCase() === '1' ||
   process.env.DATABASE_READ_ENCRYPTION_DISABLED?.toLowerCase() === 'true' ||
   process.env.DATABASE_READ_ENCRYPTION_DISABLED?.toLowerCase() === '1';
+
+/**
+ * Disable encryption for both databases
+ * @of DATABASE_ENCRYPTION_DISABLED
+ * @example 'true'
+ * @example '1'
+ */
+
+/**
+ * The timeout for read database requests
+ * @of readDatabaseRequestTimeout
+ */
 
 export {
   writeDatabaseOptions,
