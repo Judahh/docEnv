@@ -19,6 +19,34 @@ class Parser {
       });
   }
 
+  public static addRelated(
+    related: { [string: string]: any },
+    name: string,
+    values?: any,
+    relatedBlocks?: any
+  ) {
+    if (related[name] == undefined) related[name] = { values, relatedBlocks };
+    else {
+      if (values != undefined) {
+        if (related[name].values == undefined) related[name].values = values;
+        else related[name].values = [...related[name].values, ...values];
+      }
+      if (relatedBlocks != undefined) {
+        if (related[name].relatedBlocks == undefined)
+          related[name].relatedBlocks = relatedBlocks;
+        else {
+          related[name].relatedBlocks = [
+            related[name].relatedBlocks,
+            relatedBlocks,
+          ];
+          related[name].relatedBlocks = [
+            ...new Set(related[name].relatedBlocks),
+          ];
+        }
+      }
+    }
+  }
+
   public static getRelated(
     defaultValues:
       | { [string: string]: any }
@@ -54,17 +82,21 @@ class Parser {
                 parent != undefined &&
                 parentKey != undefined
               ) {
-                const value = defaultValues.value;
-                const name = defaultValues.name || value;
+                const values = Array.isArray(defaultValues.value)
+                  ? defaultValues.value
+                  : [defaultValues.value];
+                const name = defaultValues.name || values[0];
                 const relatedBlocks = defaultValues.relatedBlocks;
-                parent[parentKey] = value;
-                related[name] = { value, relatedBlocks };
+                parent[parentKey] = values[0];
+                related[name] = { values, relatedBlocks };
               } else if (defaultValue.relatedBlocks) {
-                const value = defaultValue.value;
-                const name = defaultValue.name || value;
+                const values = Array.isArray(defaultValue.value)
+                  ? defaultValue.value
+                  : [defaultValue.value];
+                const name = defaultValue.name || values[0];
                 const relatedBlocks = defaultValue.relatedBlocks;
-                defaultValues[key] = value;
-                related[name] = { value, relatedBlocks };
+                defaultValues[key] = values[0];
+                related[name] = { values, relatedBlocks };
               } else if (defaultValue.defaultValues) {
                 Parser.getRelated(
                   defaultValue.defaultValues,
