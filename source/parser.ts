@@ -19,6 +19,68 @@ class Parser {
       });
   }
 
+  public static getRelated(
+    defaultValues:
+      | { [string: string]: any }
+      | any[]
+      | string
+      | number
+      | boolean,
+    related?: { [string: string]: any },
+    parent?: any,
+    parentKey?: string | number
+  ) {
+    if (related == undefined) related = {};
+    switch (typeof defaultValues) {
+      case 'number':
+      case 'boolean':
+      case 'string':
+        break;
+
+      default:
+        if (Array.isArray(defaultValues)) {
+          for (let index = 0; index < defaultValues.length; index++) {
+            const value = defaultValues[index];
+            if (typeof value === 'object') {
+              Parser.getRelated(value, related, defaultValues, index);
+            }
+          }
+        } else {
+          for (const key in defaultValues) {
+            if (Object.prototype.hasOwnProperty.call(defaultValues, key)) {
+              const defaultValue = defaultValues[key];
+              if (
+                key === 'relatedBlocks' &&
+                parent != undefined &&
+                parentKey != undefined
+              ) {
+                const value = defaultValues.value;
+                const name = defaultValues.name || value;
+                const relatedBlocks = defaultValues.relatedBlocks;
+                parent[parentKey] = value;
+                related[name] = { value, relatedBlocks };
+              } else if (defaultValue.relatedBlocks) {
+                const value = defaultValue.value;
+                const name = defaultValue.name || value;
+                const relatedBlocks = defaultValue.relatedBlocks;
+                defaultValues[key] = value;
+                related[name] = { value, relatedBlocks };
+              } else if (defaultValue.defaultValues) {
+                Parser.getRelated(
+                  defaultValue.defaultValues,
+                  related,
+                  defaultValue,
+                  'defaultValues'
+                );
+              } else
+                Parser.getRelated(defaultValue, related, defaultValues, key);
+            }
+          }
+        }
+        break;
+    }
+  }
+
   public static getEnvironmentVariables(file: string): Array<string> {
     let env = [...file.matchAll(/process\.env\.([\w]+)/gm)]
       .map((match) => (match + '').replace('process.env.', '').split(','))
@@ -68,18 +130,31 @@ class Parser {
       defaultValuesStrArr.splice(0, 1);
       const defaultValuesStr = defaultValuesStrArr.join('=');
 
-      const defaultValues = await Extractor.extract(
-        defaultValuesStr,
-        undefined,
-        undefined,
-        undefined,
-        file
+      const parentDefaultValues = [
+        await Extractor.extract(
+          defaultValuesStr,
+          undefined,
+          undefined,
+          undefined,
+          name,
+          file
+        ),
+      ];
+
+      const related = {};
+
+      Parser.getRelated(
+        parentDefaultValues[0],
+        related,
+        parentDefaultValues,
+        0
       );
 
       const splitted = {
         name,
         environmentVariables,
-        defaultValues,
+        defaultValues: parentDefaultValues[0],
+        related,
       };
       // console.log('splitted', splitted);
       all[name] = splitted;

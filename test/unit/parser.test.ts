@@ -534,13 +534,13 @@ const expVars1 = {
 test('Test Small File', async () => {
   const file = await readFile('./test/sample0.ts', 'utf8');
   const vars = await Parser.getSpecialVariables(file);
-  // console.log('vars', vars);
+  console.log('received vars:', JSON.stringify(vars, null, 5));
   expect(vars).toMatchObject(expVars0);
 });
 
-test('Test Big File', async () => {
-  const file = await readFile('./test/sample1.ts', 'utf8');
-  const vars = await Parser.getSpecialVariables(file);
-  // console.log('vars2', vars);
-  expect(vars).toMatchObject(expVars1);
-});
+// test('Test Big File', async () => {
+//   const file = await readFile('./test/sample1.ts', 'utf8');
+//   const vars = await Parser.getSpecialVariables(file);
+//   // console.log('vars2', vars);
+//   expect(vars).toMatchObject(expVars1);
+// });

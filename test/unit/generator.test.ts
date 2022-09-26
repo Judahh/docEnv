@@ -237,23 +237,6 @@ test('Test Simple File', async () => {
   const path = './test/sampleAPI';
   // console.log('path', path);
   const gen = await Generator.generate(path);
-  // console.log('END');
-  // for (const key in gen) {
-  //   if (Object.prototype.hasOwnProperty.call(gen, key)) {
-  //     const element = gen[key];
-  //     console.log(key, ':');
-  //     for (const key2 in element.methods) {
-  //       if (Object.prototype.hasOwnProperty.call(element.methods, key2)) {
-  //         const element2 = element?.methods?.[key2];
-  //         console.log(key2, 'FILTER:', element2?.filter);
-  //         console.log(key2, 'INPUT:', element2?.input);
-  //         console.log(key2, 'OUTPUT:', element2?.output);
-  //         if (element2?.output?.test?.or) {
-  //           console.log(key2, 'OUTPUT TEST OR:', element2?.output?.test?.or);
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
+  // console.log('received gen:', JSON.stringify(gen, null, 5));
   expect(gen).toMatchObject(gen0);
 });
