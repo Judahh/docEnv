@@ -471,6 +471,106 @@ class Extractor {
     return matches[index];
   }
 
+  static formatComment(receivedComment?: string):
+    | {
+        description?: string;
+        ofs?: string[];
+        examples?: string[];
+      }
+    | undefined {
+    const comment: {
+      description?: string;
+      ofs?: string[];
+      examples?: string[];
+    } = {};
+    const lines = receivedComment
+      ?.split(/[\*\n]/gim)
+      ?.map((l) => l?.trim?.())
+      ?.filter((l) => l && l !== '' && l !== '/');
+    console.log('lines:', lines);
+    if (lines)
+      for (const line of lines) {
+        if (line.includes('@example')) {
+          const example = line.replace('@example', '').trim();
+          if (comment.examples == undefined) comment.examples = [];
+          comment.examples.push(example);
+        } else if (line.includes('@of')) {
+          const of = line.replace('@of', '').trim();
+          if (comment.ofs == undefined) comment.ofs = [];
+          comment.ofs.push(of);
+        } else {
+          if (comment.description == undefined) comment.description = '';
+          comment.description += line.trim();
+        }
+      }
+    comment.description = comment.description?.trim();
+    return comment;
+  }
+
+  static formatComments(receivedComments?: { [name: string]: string }):
+    | {
+        [name: string]: {
+          description?: string;
+          ofs?: string[];
+          examples?: string[];
+        };
+      }
+    | undefined {
+    const comments: {
+      [name: string]: {
+        description?: string;
+        ofs?: string[];
+        examples?: string[];
+      };
+    } = {};
+    if (receivedComments)
+      for (const key in receivedComments)
+        if (Object.prototype.hasOwnProperty.call(receivedComments, key)) {
+          const receivedComment = receivedComments[key];
+          const comment = Extractor.formatComment(receivedComment);
+          if (comment && (!comment?.ofs || comment.ofs.length === 0))
+            comments[key] = comment;
+          else if (comment?.ofs)
+            for (const of of comment.ofs) comments[of] = comment;
+        }
+    return Object.keys(comments).length == 0 ? undefined : comments;
+  }
+
+  static getParamComments(baseContent: string, param?: string) {
+    const subParams = param?.split(RegExp('\\;|\\,|\\n'));
+    let comments: any = {};
+    if (subParams) {
+      for (const subParam of subParams) {
+        const find = subParam.replace('?', '\\?').trim();
+        if (find && find !== '') {
+          const rep = `(\\/\\*[\\s\\S]*?\\*\\/)\\s*${find}`;
+          // console.log('rep', rep);
+          const regex = new RegExp(rep, 'mi');
+          const matches = baseContent
+            .match(regex)?.[1]
+            .split('/*')
+            .filter((a) => a && a.trim() !== '');
+          const match = matches?.[matches.length - 1]
+            .split('*/')[0]
+            .trim()
+            .replaceAll(/^\s*(\*)\s*/gim, '')
+            .trim()
+            .replaceAll(/^\s*(\*)\s*/gim, '')
+            .trim();
+          // console.log('match', match);
+          const name = find
+            .split(RegExp(':|=|;'))[0]
+            .replace('\\?', '')
+            .replace('?', '')
+            .trim();
+          if (match && name !== '') comments[name] = match;
+        }
+      }
+      if (Object.keys(comments).length == 0) comments = undefined;
+    }
+    return comments ? Extractor.formatComments(comments) : undefined;
+  }
+
   public static findCommentBlock(
     receivedValue?: string | number,
     name?: string,
@@ -486,7 +586,7 @@ class Extractor {
         ? currentValue.replace(/process\.env\./gim, '')
         : currentValue;
     const blocksOf = fileString?.matchAll(/(\/\*(?:\*(?!\/)|[^*])*\*\/)/gim);
-    let blocks: string[] = [];
+    let blocks: any[] = [];
     if (blocksOf)
       for (const blockOf of blocksOf)
         if (
@@ -512,9 +612,9 @@ class Extractor {
           .reverse()[0];
         blocksOver.push(blockOver);
       }
-    blocks = [...blocks, ...blocksOver].filter(
-      (block) => block && block.trim().length > 0
-    );
+    blocks = [...blocks, ...blocksOver]
+      .filter((block) => block && block.trim().length > 0)
+      .map((block) => Extractor.formatComment(block.trim()));
     if (blocks.length > 0) {
       // console.log('all blocks:', blocks);
       value = {
@@ -1120,87 +1220,6 @@ class Extractor {
     // console.log('CLEAN:', object, string);
     if (toHide) return string;
     return Extractor.getValue(string, hiddenPrecedences, name, fileString);
-  }
-
-  static formatComments(receivedComments?: { [name: string]: string }):
-    | {
-        [name: string]: {
-          description?: string;
-          ofs?: string[];
-          examples?: string[];
-        };
-      }
-    | undefined {
-    const comments: {
-      [name: string]: {
-        description?: string;
-        ofs?: string[];
-        examples?: string[];
-      };
-    } = {};
-    if (receivedComments)
-      for (const key in receivedComments)
-        if (Object.prototype.hasOwnProperty.call(receivedComments, key)) {
-          const receivedComment = receivedComments[key];
-          const comment: {
-            description?: string;
-            ofs?: string[];
-            examples?: string[];
-          } = {};
-          const lines = receivedComment.split('\n');
-          for (const line of lines) {
-            if (line.includes('@example')) {
-              const example = line.replace('@example', '').trim();
-              if (comment.examples == undefined) comment.examples = [];
-              comment.examples.push(example);
-            } else if (line.includes('@of')) {
-              const of = line.replace('@of', '').trim();
-              if (comment.ofs == undefined) comment.ofs = [];
-              comment.ofs.push(of);
-            } else {
-              if (comment.description == undefined) comment.description = '';
-              comment.description += line.trim();
-            }
-          }
-          if (!comment.ofs || comment.ofs.length === 0) comments[key] = comment;
-          else for (const of of comment.ofs) comments[of] = comment;
-        }
-    return Object.keys(comments).length == 0 ? undefined : comments;
-  }
-
-  static getParamComments(baseContent: string, param?: string) {
-    const subParams = param?.split(RegExp('\\;|\\,|\\n'));
-    let comments: any = {};
-    if (subParams) {
-      for (const subParam of subParams) {
-        const find = subParam.replace('?', '\\?').trim();
-        if (find && find !== '') {
-          const rep = `(\\/\\*[\\s\\S]*?\\*\\/)\\s*${find}`;
-          // console.log('rep', rep);
-          const regex = new RegExp(rep, 'mi');
-          const matches = baseContent
-            .match(regex)?.[1]
-            .split('/*')
-            .filter((a) => a && a.trim() !== '');
-          const match = matches?.[matches.length - 1]
-            .split('*/')[0]
-            .trim()
-            .replaceAll(/^\s*(\*)\s*/gim, '')
-            .trim()
-            .replaceAll(/^\s*(\*)\s*/gim, '')
-            .trim();
-          // console.log('match', match);
-          const name = find
-            .split(RegExp(':|=|;'))[0]
-            .replace('\\?', '')
-            .replace('?', '')
-            .trim();
-          if (match && name !== '') comments[name] = match;
-        }
-      }
-      if (Object.keys(comments).length == 0) comments = undefined;
-    }
-    return comments ? Extractor.formatComments(comments) : undefined;
   }
 
   public static bundler(
