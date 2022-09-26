@@ -12,8 +12,10 @@ class Parser {
       .filter((str) => str.includes('process.env') || str.includes('@env_var'))
       .filter((str) => {
         const strSplit = str.split('{')[0].replace(' ', '');
-        // console.log("strSplit:", strSplit);
-        return strSplit.match(/^([\n ]*(var)|(let)|(const)[\n ]+)/gm);
+        // console.log('strSplit:', strSplit);
+        return strSplit.match(
+          /^(?:(?:(?:\/\*)+.*?(?:\*\/)+)*\s*((var)|(let)|(const))[\n ]+)/gm
+        );
       });
   }
 
@@ -25,8 +27,9 @@ class Parser {
     return env;
   }
 
-  public static getSpecialVariables(file: string) {
+  public static async getSpecialVariables(file: string) {
     const splittedLines = Parser.splitLines(file);
+    // console.log('splittedLines:', splittedLines);
     const all = {};
 
     for (const line of splittedLines) {
@@ -35,57 +38,53 @@ class Parser {
         .split(/[:;,.\?\|\& ]+/)
         .filter((str) => str.trim() !== '');
 
+      // console.log('variables:', variables);
+
+      const type = variables.findIndex(
+        (element) =>
+          element.trim() === 'var' ||
+          element.trim() === 'let' ||
+          element.trim() === 'const'
+      );
+
       const name =
-        variables.length === 1
+        type !== -1
+          ? variables[type + 1]
+          : variables.length === 1
           ? variables[0]
           : variables.length >= 2
           ? variables[1]
           : variables[0];
 
-      // console.log("name", name);
+      // console.log('name', name);
 
       let environmentVariables = [...line.matchAll(/process\.env\.([\w]+)/gm)]
         .map((match) => (match + '').replace('process.env.', '').split(','))
         .flat();
       environmentVariables = [...new Set(environmentVariables)];
 
-      // console.log('line', line);
       const defaultValuesStrArr = line.split('=');
 
       defaultValuesStrArr.splice(0, 1);
       const defaultValuesStr = defaultValuesStrArr.join('=');
-      // console.log('defaultValuesStr', defaultValuesStr);
 
-      const defaultValues = Extractor.extract(defaultValuesStr);
-
-      // let defaultValuesStr = defaultValuesStrArr.join("=").replace(/process\.env\.([\w]+)\?*\.*[\w]+\(*\)* *[<>=]=* *'*"*`*[\w]+`*"*'*/gm, (a,e1)=>e1);
-      // const format = defaultValuesStr
-      //   .replace(
-      //     /\.([^ \n\|\&=<>]+) *([<>=]=+) *([^ \n\|\&=<>]+)/g,
-      //     (_a, e1) => `.${e1} `
-      //   )
-      //   .replace(/[ \n]+/g, " ");
-      // const uniq = format.replace(
-      //   / +([^ \n\|\&=<>]+) +\|+ +([^ \n\|\&=<>]+) +/g,
-      //   (a, e1, e2) => {
-      //     //   console.log("A: ", a);
-      //     //   console.log("E1: ", e1);
-      //     //   console.log("E2: ", e2);
-      //     return e1 === e2 ? ` ${e1} ` : ` ${e1} || ${e2} `;
-      //   }
-      // );
-      // const defaultValues = uniq
-      //   .split(/[:;,.\?\|\& ]+/)
-      //   .filter((defaults) => defaults !== "" && defaults !== "env");
-      // const required = defaultValues.length === 0;
+      const defaultValues = await Extractor.extract(
+        defaultValuesStr,
+        undefined,
+        undefined,
+        undefined,
+        file
+      );
 
       const splitted = {
         name,
         environmentVariables,
         defaultValues,
       };
+      // console.log('splitted', splitted);
       all[name] = splitted;
     }
+    // console.log('all', all);
 
     return all;
   }

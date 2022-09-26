@@ -103,7 +103,7 @@ class SwaggerGenerator {
   ): { swagger: Swagger; $ref: string; name?: string } {
     let swagger = receivedSwagger;
     const element = receivedElement;
-    console.log('generateSchema', element, name);
+    // console.log('generateSchema', element, name);
     let schema: Schema;
     if (name === 'or') {
       schema = {
@@ -125,7 +125,7 @@ class SwaggerGenerator {
       };
     }
     if (typeof element === 'object' && schema?.type !== 'array') {
-      console.log('object', element);
+      // console.log('object', element);
       schema.properties = {};
       for (const key in element) {
         if (Object.prototype.hasOwnProperty.call(element, key)) {
@@ -144,7 +144,7 @@ class SwaggerGenerator {
       // @ts-ignore
       schema?.items?.allOf
     ) {
-      console.log('else', element);
+      // console.log('else', element);
       const items = // @ts-ignore
         schema?.items?.oneOf ||
         // @ts-ignore

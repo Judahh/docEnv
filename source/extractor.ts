@@ -471,14 +471,64 @@ class Extractor {
     return matches[index];
   }
 
-  public static getValue(
-    value: any,
-    hiddenPrecedences?: Array<{ precedence: number; string: string }>
+  public static findCommentBlock(
+    receivedValue?: string | number,
+    fileString?: string
   ) {
-    if (value == undefined) return value;
+    const value = receivedValue;
+    const currentValue =
+      typeof value === 'string'
+        ? value.replaceAll('{@', '').replaceAll('}', '').trim()
+        : value;
+    const baseVar =
+      typeof currentValue === 'string'
+        ? currentValue.replace(/process\.env\./gim, '')
+        : currentValue;
+    const blocksOf = fileString?.matchAll(/(\/\*(?:\*(?!\/)|[^*])*\*\/)/gim);
+    let blocks: string[] = [];
+    if (blocksOf)
+      for (const blockOf of blocksOf)
+        if (blockOf[0].match(new RegExp(`@of\\s*${baseVar}\\s*`, 'gim')))
+          blocks.push(blockOf[0]);
+    const overs = fileString
+      ?.split('' + currentValue)
+      .filter((_s, i) => i % 2 === 0);
+    const blocksOver: string[] = [];
+    if (overs)
+      for (const over of overs) {
+        const fblocksOver = over?.matchAll(/(\/\*(?:\*(?!\/)|[^*])*\*\/)/gim);
+        const fBlocksOver: string[] = [];
+        if (fblocksOver)
+          for (const blockOver of fblocksOver) {
+            fBlocksOver.push(blockOver[0]);
+          }
+        const blockOver = fBlocksOver
+          .filter((block) => block && block.trim().length > 0)
+          .reverse()[0];
+        blocksOver.push(blockOver);
+      }
+    blocks = [...blocks, ...blocksOver];
+    // console.log('all blocks:', blocks);
+    return value;
+  }
+
+  public static getBasicValue(value?: string | number, fileString?: string) {
+    Extractor.findCommentBlock(value, fileString);
+    return value;
+  }
+
+  public static getValue(
+    value?: string | number,
+    hiddenPrecedences?: Array<{ precedence: number; string: string }>,
+    fileString?: string
+  ) {
+    if (typeof value === 'string' && value?.includes('{@'))
+      console.log('getValue:', value);
+    if (value == undefined) return Extractor.getBasicValue(value, fileString);
     try {
-      if (typeof value === 'string') return JSON.parse(value);
-      else return value;
+      if (typeof value === 'string')
+        return Extractor.getBasicValue(JSON.parse(value), fileString);
+      else return Extractor.getBasicValue(value, fileString);
     } catch (error) {
       if (typeof value === 'string') {
         const newValue = value.split(new RegExp(`[;]`, 'gm'))[0].trim();
@@ -488,18 +538,24 @@ class Extractor {
               ? hiddenPrecedences[0].precedence
               : Extractor.findPrecedence(value);
           if (precedence != undefined)
-            return Extractor.extract(value, precedence);
+            return Extractor.extract(
+              value,
+              precedence,
+              undefined,
+              undefined,
+              fileString
+            );
           const newValue2 =
             value.includes("'") || value.includes('"')
               ? value.replaceAll('"', '').replaceAll("'", '')
               : value.includes('{@')
               ? value
               : `{@${value}}`;
-          return newValue2;
+          return Extractor.getBasicValue(newValue2, fileString);
         }
-        return Extractor.getValue(newValue);
+        return Extractor.getValue(newValue, undefined, fileString);
       }
-      return value;
+      return Extractor.getBasicValue(value, fileString);
     }
   }
 
@@ -534,8 +590,12 @@ class Extractor {
     return found;
   }
 
-  public static cleanAssignment(options: { string?: string; object? }) {
-    console.log('cleanAssignment', options);
+  public static cleanAssignment(options: {
+    string?: string;
+    object?;
+    fileString?: string;
+  }) {
+    // console.log('cleanAssignment', options);
     const toSplit = new RegExp(`[${Extractor.equals}]`, 'gm');
     const match = options?.string?.match(toSplit);
     let elements = options?.string?.split(toSplit);
@@ -557,7 +617,13 @@ class Extractor {
     const nMatch = name?.match(/\w+\s*\?\s*:*/i);
     name = nMatch
       ? '{@' + name + '}'
-      : Extractor.extract(elements?.[0]?.trim());
+      : Extractor.extract(
+          elements?.[0]?.trim(),
+          undefined,
+          undefined,
+          undefined,
+          options.fileString
+        );
     // console.log('name s:', nMatch, name);
 
     let value = elements?.[1]?.trim();
@@ -566,8 +632,22 @@ class Extractor {
     // console.log('isArray', isArray, gArray, value);
     value = isArray ? gArray[0] : value;
     value = isArray
-      ? { array: Extractor.extract(value) }
-      : Extractor.extract(value);
+      ? {
+          array: Extractor.extract(
+            value,
+            undefined,
+            undefined,
+            undefined,
+            options.fileString
+          ),
+        }
+      : Extractor.extract(
+          value,
+          undefined,
+          undefined,
+          undefined,
+          options.fileString
+        );
     // console.log('cleanAssignment name', name);
     // console.log('cleanAssignment value', value);
     if (name != undefined && name != '' && name != ' ')
@@ -576,7 +656,11 @@ class Extractor {
     return options.object;
   }
 
-  public static cleanComparation(options: { string?: string; object? }) {
+  public static cleanComparation(options: {
+    string?: string;
+    object?;
+    fileString?: string;
+  }) {
     const toSplit = new RegExp(`[${Extractor.comparation}]`, 'gm');
     // console.log('cleanComparation', options.string);
     const elements = options?.string
@@ -585,9 +669,21 @@ class Extractor {
       ?.map((e) => e.trim());
 
     // console.log('cleanComparation elements', elements);
-    const name = Extractor.extract(elements?.[0]?.trim());
+    const name = Extractor.extract(
+      elements?.[0]?.trim(),
+      undefined,
+      undefined,
+      undefined,
+      options.fileString
+    );
     const type = Extractor.getComparationType(options?.string);
-    const value = Extractor.extract(elements?.[1]?.trim());
+    const value = Extractor.extract(
+      elements?.[1]?.trim(),
+      undefined,
+      undefined,
+      undefined,
+      options.fileString
+    );
     // console.log('cleanComparation name', name);
     // console.log('cleanComparation value', value);
     if (name != undefined && name.trim() != '') {
@@ -607,6 +703,7 @@ class Extractor {
       string?: string;
       start?: number;
       end?: number;
+      fileString?: string;
     },
     removeOuter?: boolean
   ) {
@@ -620,10 +717,20 @@ class Extractor {
           (removeOuter ? 1 : 0)
       );
     // console.log('CleanBundle end:', options.string);
-    return Extractor.extract(options.string);
+    return Extractor.extract(
+      options.string,
+      undefined,
+      undefined,
+      undefined,
+      options.fileString
+    );
   }
 
-  public static basicCleanObject(string: string, precedence: Precedence) {
+  public static basicCleanObject(
+    string: string,
+    precedence: Precedence,
+    fileString?: string
+  ) {
     // console.log('BasicCleanObject:', string);
 
     const toMatch = Extractor.groupInternal(precedence);
@@ -631,7 +738,11 @@ class Extractor {
     return string?.trim()?.match(toMatch)?.[0]?.trim();
   }
 
-  public static objectMatches(string: string, precedence = Precedence.object) {
+  public static objectMatches(
+    string: string,
+    precedence = Precedence.object,
+    fileString?: string
+  ) {
     const toReplace = Extractor.groupInternal(precedence);
     // console.log('ObjectMatches:', string, toReplace);
     const matchesA: IterableIterator<RegExpMatchArray> =
@@ -659,7 +770,8 @@ class Extractor {
   public static splitObject(
     string: string,
     match?,
-    precedence = Precedence.object
+    precedence = Precedence.object,
+    fileString?: string
   ) {
     const toSplit = Extractor.regex(
       Precedence.assignment,
@@ -679,8 +791,16 @@ class Extractor {
     // }
   }
 
-  public static filterObject(string: string, precedence = Precedence.object) {
-    const objectMatches = Extractor.objectMatches(string, precedence);
+  public static filterObject(
+    string: string,
+    precedence = Precedence.object,
+    fileString?: string
+  ) {
+    const objectMatches = Extractor.objectMatches(
+      string,
+      precedence,
+      fileString
+    );
     // console.log('filter:', string, objectMatches);
 
     let index = 0;
@@ -726,6 +846,7 @@ class Extractor {
       start?: number;
       end?: number;
       object?;
+      fileString?: string;
     },
     removeOuter?: boolean,
     precedence = Precedence.object
@@ -740,7 +861,11 @@ class Extractor {
       ?.replace(toReplace, (a, b) => b)
       ?.trim();
 
-    const objects = Extractor.filterObject(newString || '');
+    const objects = Extractor.filterObject(
+      newString || '',
+      undefined,
+      options.fileString
+    );
 
     // console.log('cleanObject objects', objects, objects.length);
     // console.log('cleanObject init', toReplace, newString);
@@ -751,6 +876,7 @@ class Extractor {
       options.object = Extractor.cleanAssignment({
         string: currentString,
         object: options.object,
+        fileString: options.fileString,
       });
     }
     // console.error('cleanObject end', options.object);
@@ -762,6 +888,7 @@ class Extractor {
       string?: string;
       start?: number;
       end?: number;
+      fileString?: string;
     },
     removeOuter?: boolean,
     precedence = Precedence.ternary
@@ -793,23 +920,42 @@ class Extractor {
     return {
       if:
         typeof ifEl === 'string'
-          ? Extractor.extract(ifEl)
-          : Extractor.getValue(ifEl),
+          ? Extractor.extract(
+              ifEl,
+              undefined,
+              undefined,
+              undefined,
+              options.fileString
+            )
+          : Extractor.getValue(ifEl, undefined, options.fileString),
       then:
         typeof thenEl === 'string'
-          ? Extractor.extract(thenEl)
-          : Extractor.getValue(thenEl),
+          ? Extractor.extract(
+              thenEl,
+              undefined,
+              undefined,
+              undefined,
+              options.fileString
+            )
+          : Extractor.getValue(thenEl, undefined, options.fileString),
       else:
         typeof elseEl === 'string'
-          ? Extractor.extract(elseEl)
-          : Extractor.getValue(elseEl),
+          ? Extractor.extract(
+              elseEl,
+              undefined,
+              undefined,
+              undefined,
+              options.fileString
+            )
+          : Extractor.getValue(elseEl, undefined, options.fileString),
     };
   }
 
   public static cleanOption(
     options,
     removeOuter?: boolean,
-    precedence = Precedence.or
+    precedence = Precedence.or,
+    fileString?: string
   ) {
     options
       .map((option) =>
@@ -835,6 +981,7 @@ class Extractor {
         start: number;
         end: number;
         object?: any;
+        fileString?: string;
       },
       removeOuter?: boolean,
       precedence?: Precedence
@@ -846,7 +993,8 @@ class Extractor {
     removeOuter?: boolean,
     object = {},
     toHide?: boolean,
-    hiddenPrecedences?: Array<{ precedence: number; string: string }>
+    hiddenPrecedences?: Array<{ precedence: number; string: string }>,
+    fileString?: string
   ) {
     const opens = precedence !== undefined ? Extractor.getOpen(precedence) : [];
     const closes =
@@ -886,7 +1034,7 @@ class Extractor {
           // console.log('Cleaner 2!', cleanFunction, string);
 
           const clean = cleanFunction?.(
-            { string, start: startIndex, end: endIndex, object },
+            { string, start: startIndex, end: endIndex, object, fileString },
             removeOuter
           );
           // console.log('CLEAN E:', clean);
@@ -897,7 +1045,7 @@ class Extractor {
     }
     // console.log('CLEAN:', object, string);
     if (toHide) return string;
-    return Extractor.getValue(string, hiddenPrecedences);
+    return Extractor.getValue(string, hiddenPrecedences, fileString);
   }
 
   static formatComments(receivedComments?: { [name: string]: string }):
@@ -987,7 +1135,8 @@ class Extractor {
     rmOuter?: boolean,
     object = {},
     toHide?: boolean,
-    filterPrecedence?: Precedence
+    filterPrecedence?: Precedence,
+    fileString?: string
   ) {
     // if (!newPath) {
     //   const comments = Extractor.getParamComments(
@@ -1027,31 +1176,40 @@ class Extractor {
     string = splitter ? string.split(splitter)[0].trim() : string.trim();
 
     const positions = Extractor.getPosistions(precedence);
-    console.log(
-      'Bundler S:',
-      Precedence[precedence],
-      string,
-      toHide,
-      positions,
-      splitter,
-      toSplit
-    );
+    // console.log(
+    //   'Bundler S:',
+    //   Precedence[precedence],
+    //   string,
+    //   toHide,
+    //   positions,
+    //   splitter,
+    //   toSplit
+    // );
     if (precedence === Precedence.assignment) {
       // if (toHide) return string;
-      return Extractor.extract(string, undefined, precedence + 1, toHide);
+      return Extractor.extract(
+        string,
+        undefined,
+        precedence + 1,
+        toHide,
+        fileString
+      );
     } else if (precedence === Precedence.object) {
-      if (toHide) return Extractor.basicCleanObject(string, precedence);
+      if (toHide)
+        return Extractor.basicCleanObject(string, precedence, fileString);
       return Extractor.cleanObject({
         string,
         start: 0,
         end: string.length,
         object,
+        fileString,
       });
     } else if (precedence === Precedence.comparation) {
       if (toHide) return string;
       return Extractor.cleanComparation({
         string,
         object,
+        fileString,
       });
     } else if (positions.length === 2) {
       let options: any[] = [];
@@ -1074,7 +1232,9 @@ class Extractor {
 
       // console.log('extractOption options:', options, string, toSplit);
       options = options.map((o) =>
-        typeof o === 'string' ? Extractor.extract(o) : o
+        typeof o === 'string'
+          ? Extractor.extract(o, undefined, undefined, undefined, fileString)
+          : o
       );
       // console.log('extractOption 1:', string, '-', regex, '-', options);
       if (options.length == 1) return options[0];
@@ -1117,7 +1277,8 @@ class Extractor {
               hiddenPrecedence !== Precedence.object &&
                 hiddenPrecedence !== Precedence.group
                 ? precedence
-                : undefined
+                : undefined,
+              fileString
             );
           const i = starts.length > 0 ? starts[starts.length - 1] + 1 : 0;
           const pg = string.substring(i);
@@ -1155,7 +1316,11 @@ class Extractor {
           return Extractor.bundler(
             string,
             hiddenPrecedences?.[0]?.precedence,
-            removeOuter
+            removeOuter,
+            undefined,
+            undefined,
+            undefined,
+            fileString
           );
         } else {
           ends.push(index);
@@ -1174,7 +1339,8 @@ class Extractor {
             removeOuter,
             object,
             toHide,
-            hiddenPrecedences
+            hiddenPrecedences,
+            fileString
           );
         }
       }
@@ -1195,7 +1361,8 @@ class Extractor {
           removeOuter,
           object,
           toHide,
-          hiddenPrecedences
+          hiddenPrecedences,
+          fileString
         );
       }
       ends.push(string.length);
@@ -1212,7 +1379,8 @@ class Extractor {
         removeOuter,
         object,
         toHide,
-        hiddenPrecedences
+        hiddenPrecedences,
+        fileString
       );
       // console.log('Bundler clean:', endTypes, clean);
       let endt: string | undefined = [...closes]
@@ -1228,7 +1396,7 @@ class Extractor {
             : clean.trim()
           : clean;
       // console.log('Bundler cleanString:', cleanString);
-      return Extractor.getValue(cleanString);
+      return Extractor.getValue(cleanString, undefined, fileString);
     }
   }
 
@@ -1259,9 +1427,10 @@ class Extractor {
     receivedString?: string,
     receivedPrecedence?: Precedence,
     from = Precedence.ternary,
-    toHide?: boolean
+    toHide?: boolean,
+    fileString?: string
   ): any {
-    // console.log('e', receivedString);
+    // console.log('extract', receivedString);
 
     let string = '' + receivedString;
     string = string?.replaceAll('?.', '.')?.replaceAll('!.', '.')?.trim();
@@ -1286,10 +1455,12 @@ class Extractor {
         precedence,
         undefined,
         undefined,
-        toHide
+        toHide,
+        undefined,
+        fileString
       );
 
-    return Extractor.getValue(string);
+    return Extractor.getValue(string, undefined, fileString);
   }
 }
 

@@ -2,6 +2,12 @@ import { readFile } from 'fs/promises';
 import { Parser } from '../../source/parser';
 
 const expVars0 = {
+  test: {
+    name: 'test',
+    environmentVariables: ['TEST'],
+    description: 'Test',
+    defaultValues: '{@process.env.TEST}',
+  },
   writeDatabaseOptions: {
     name: 'writeDatabaseOptions',
     environmentVariables: ['DATABASE_OPTIONS', 'DATABASE_WRITE_OPTIONS'],
@@ -527,12 +533,14 @@ const expVars1 = {
 
 test('Test Small File', async () => {
   const file = await readFile('./test/sample0.ts', 'utf8');
-  const vars = Parser.getSpecialVariables(file);
+  const vars = await Parser.getSpecialVariables(file);
+  // console.log('vars', vars);
   expect(vars).toMatchObject(expVars0);
 });
 
 test('Test Big File', async () => {
   const file = await readFile('./test/sample1.ts', 'utf8');
-  const vars = Parser.getSpecialVariables(file);
+  const vars = await Parser.getSpecialVariables(file);
+  // console.log('vars2', vars);
   expect(vars).toMatchObject(expVars1);
 });

@@ -1,4 +1,10 @@
+/* eslint-disable no-unused-vars */
 import { ConnectionOptions } from 'tls';
+
+/**
+ * Test
+ */
+const test = process.env.TEST;
 
 const writeDatabaseOptions =
   process.env.DATABASE_OPTIONS || process.env.DATABASE_WRITE_OPTIONS;

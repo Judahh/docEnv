@@ -218,9 +218,9 @@ test('Test Simple File', async () => {
   const path = './test/sampleAPI';
   const gen = await Generator.generate(path);
   const gen0 = await SwaggerGenerator.generate(gen);
-  console.log(gen0);
-  console.log(
-    gen0?.paths?.['/path1']?.post?.requestBody?.content?.['application/json']?.schema
-  );
-  console.log(gen0?.components?.schemas);
+  // console.log(gen0);
+  // console.log(
+  //   gen0?.paths?.['/path1']?.post?.requestBody?.content?.['application/json']?.schema
+  // );
+  // console.log(gen0?.components?.schemas);
 });
