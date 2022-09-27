@@ -14,7 +14,7 @@ class Parser {
         const strSplit = str.split('{')[0].replace(' ', '');
         // console.log('strSplit:', strSplit);
         return strSplit.match(
-          /^(?:(?:(?:\/\*)+.*?(?:\*\/)+)*\s*((var)|(let)|(const))[\n ]+)/gm
+          /^(?:(?:(?:\/\*)+.*?(?:\*\/)+)*\s*((var)|(let)|(const))\s+)/gm
         );
       });
   }
@@ -23,25 +23,19 @@ class Parser {
     related: { [string: string]: any },
     name: string,
     values?: any,
-    relatedBlocks?: any
+    info?: any
   ) {
-    if (related[name] == undefined) related[name] = { values, relatedBlocks };
+    if (related[name] == undefined) related[name] = { values, info };
     else {
       if (values != undefined) {
         if (related[name].values == undefined) related[name].values = values;
         else related[name].values = [...related[name].values, ...values];
       }
-      if (relatedBlocks != undefined) {
-        if (related[name].relatedBlocks == undefined)
-          related[name].relatedBlocks = relatedBlocks;
+      if (info != undefined && info != '') {
+        if (related[name].info == undefined) related[name].info = info;
         else {
-          related[name].relatedBlocks = [
-            related[name].relatedBlocks,
-            relatedBlocks,
-          ];
-          related[name].relatedBlocks = [
-            ...new Set(related[name].relatedBlocks),
-          ];
+          related[name].info = [related[name].info, info];
+          related[name].info = [...new Set(related[name].info)];
         }
       }
     }
@@ -78,26 +72,33 @@ class Parser {
             if (Object.prototype.hasOwnProperty.call(defaultValues, key)) {
               const defaultValue = defaultValues[key];
               if (
-                key === 'relatedBlocks' &&
+                key === 'info' &&
                 parent != undefined &&
                 parentKey != undefined
               ) {
                 const values = Array.isArray(defaultValues.value)
                   ? defaultValues.value
                   : [defaultValues.value];
-                const name = defaultValues.name || values[0];
-                const relatedBlocks = defaultValues.relatedBlocks;
-                parent[parentKey] = values[0];
-                related[name] = { values, relatedBlocks };
-              } else if (defaultValue.relatedBlocks) {
+                for (const aInfo of defaultValues.info) {
+                  const name = aInfo.ofs[0];
+                  // console.log('name:', name);
+                  const info = { ...aInfo };
+                  delete info.ofs;
+                  parent[parentKey] = values[0];
+                  related[name] = info;
+                }
+              } else if (defaultValue?.info) {
                 const values = Array.isArray(defaultValue.value)
                   ? defaultValue.value
                   : [defaultValue.value];
-                const name = defaultValue.name || values[0];
-                const relatedBlocks = defaultValue.relatedBlocks;
-                defaultValues[key] = values[0];
-                related[name] = { values, relatedBlocks };
-              } else if (defaultValue.defaultValues) {
+                for (const aInfo of defaultValue.info) {
+                  const name = aInfo.ofs[0];
+                  const info = { ...aInfo };
+                  delete info.ofs;
+                  defaultValues[key] = values[0];
+                  related[name] = info;
+                }
+              } else if (defaultValue?.defaultValues) {
                 Parser.getRelated(
                   defaultValue.defaultValues,
                   related,
@@ -162,6 +163,8 @@ class Parser {
       defaultValuesStrArr.splice(0, 1);
       const defaultValuesStr = defaultValuesStrArr.join('=');
 
+      // console.log('pre parentDefaultValues:', name);
+
       const parentDefaultValues = [
         await Extractor.extract(
           defaultValuesStr,
@@ -172,6 +175,11 @@ class Parser {
           file
         ),
       ];
+
+      // console.log(
+      //   'end parentDefaultValues:',
+      //   JSON.stringify(parentDefaultValues, null, 5)
+      // );
 
       const related = {};
 
@@ -191,9 +199,27 @@ class Parser {
       // console.log('splitted', splitted);
       all[name] = splitted;
     }
-    // console.log('all', all);
+    Parser.formatRelated(all);
 
     return all;
+  }
+
+  static formatRelated(all: any) {
+    for (const key in all) {
+      if (Object.prototype.hasOwnProperty.call(all, key)) {
+        const element = all[key];
+        const related = element.related[key];
+        all[key] = { ...element, ...related };
+        if (element.related)
+          for (const key2 in element.related) {
+            if (Object.prototype.hasOwnProperty.call(element.related, key2)) {
+              const element2 = element.related[key2];
+              element2.name = key2;
+              if (all[key2] == undefined) all[key2] = element2;
+            }
+          }
+      }
+    }
   }
 }
 

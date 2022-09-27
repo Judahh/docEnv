@@ -217,10 +217,7 @@ import { SwaggerGenerator } from '../../source/swaggerGenerator';
 test('Test Simple File', async () => {
   const path = './test/sampleAPI';
   const gen = await Generator.generate(path);
+  console.log('received gen:', JSON.stringify(gen, null, 5));
   const gen0 = await SwaggerGenerator.generate(gen);
-  // console.log(gen0);
-  // console.log(
-  //   gen0?.paths?.['/path1']?.post?.requestBody?.content?.['application/json']?.schema
-  // );
-  // console.log(gen0?.components?.schemas);
+  // console.log('received gen0:', JSON.stringify(gen0, null, 5));
 });

@@ -487,12 +487,18 @@ class Extractor {
       ?.split(/[\*\n]/gim)
       ?.map((l) => l?.trim?.())
       ?.filter((l) => l && l !== '' && l !== '/');
-    console.log('lines:', lines);
+    // console.log('lines:', lines);
     if (lines)
       for (const line of lines) {
         if (line.includes('@example')) {
-          const example = line.replace('@example', '').trim();
+          let example = line.replace('@example', '').trim();
           if (comment.examples == undefined) comment.examples = [];
+          try {
+            example = JSON.parse(example);
+          } catch (error) {
+            const match = example.match(/['`"](.*)['`"]/);
+            if (match) example = match[1] || match[0];
+          }
           comment.examples.push(example);
         } else if (line.includes('@of')) {
           const of = line.replace('@of', '').trim();
@@ -504,6 +510,11 @@ class Extractor {
         }
       }
     comment.description = comment.description?.trim();
+    if (
+      (comment.examples == undefined || comment.examples.length == 0) &&
+      (comment.description == undefined || comment.description.trim() == '')
+    )
+      return undefined;
     return comment;
   }
 
@@ -583,23 +594,38 @@ class Extractor {
         : value;
     const baseVar =
       typeof currentValue === 'string'
-        ? currentValue.replace(/process\.env\./gim, '')
+        ? currentValue.replace(/process\.env\./gim, '').split('.')[0]
         : currentValue;
+    // console.log('baseVar', baseVar);
     const blocksOf = fileString?.matchAll(/(\/\*(?:\*(?!\/)|[^*])*\*\/)/gim);
     let blocks: any[] = [];
     if (blocksOf)
-      for (const blockOf of blocksOf)
-        if (
-          blockOf[0].match(new RegExp(`@of\\s*${baseVar}\\s*`, 'gim')) ||
-          blockOf[0].match(new RegExp(`@of\\s*${name}\\s*`, 'gim'))
-        )
-          blocks.push(blockOf[0]);
-    const overs = fileString
-      ?.split('' + currentValue)
-      .filter((_s, i) => i % 2 === 0)
-      .filter((block) => block && block.trim().length > 0);
-    const blocksOver: string[] = [];
-    if (overs)
+      for (const blockOf of blocksOf) {
+        if (blockOf[0].match(new RegExp(`@of\\s*${baseVar}\\s*`, 'gim'))) {
+          const block = Extractor.formatComment(blockOf[0].trim());
+          if (block) {
+            block.ofs = [baseVar];
+            blocks.push(block);
+          }
+        }
+        if (blockOf[0].match(new RegExp(`@of\\s*${name}\\s*`, 'gim'))) {
+          const block = Extractor.formatComment(blockOf[0].trim());
+          if (block) {
+            if (name) block.ofs = [name];
+            else block.ofs = [];
+            blocks.push(block);
+          }
+        }
+      }
+    const reg = `(?:(?:var)|(?:let)|(?:const))\\s+(${name})\\s`;
+    const reg2 = `(?:(?:var)|(?:let)|(?:const))\\s+(\\w+)\\s`;
+    const regex = new RegExp(reg, 'g');
+    const regex2 = new RegExp(reg2, 'g');
+    const overs0 = fileString?.split(regex)[0];
+    const overs1 = overs0?.split(regex2).reverse()[0];
+    const overs = overs1 ? [overs1] : [];
+    const blocksOver: any[] = [];
+    if (overs && overs.length > 0)
       for (const over of overs) {
         const fblocksOver = over?.matchAll(/(\/\*(?:\*(?!\/)|[^*])*\*\/)/gim);
         const fBlocksOver: string[] = [];
@@ -607,22 +633,31 @@ class Extractor {
           for (const blockOver of fblocksOver) {
             fBlocksOver.push(blockOver[0]);
           }
-        const blockOver = fBlocksOver
-          .filter((block) => block && block.trim().length > 0)
-          .reverse()[0];
-        blocksOver.push(blockOver);
+        const blockOver = Extractor.formatComment(
+          fBlocksOver
+            ?.filter((block) => block && block.trim().length > 0)
+            ?.reverse()[0]
+            ?.trim()
+        );
+        if (blockOver) {
+          if (name) {
+            blockOver.ofs = [name];
+          } else {
+            blockOver.ofs = [];
+          }
+          blocksOver.push(blockOver);
+        }
       }
-    blocks = [...blocks, ...blocksOver]
-      .filter((block) => block && block.trim().length > 0)
-      .map((block) => Extractor.formatComment(block.trim()));
+    blocks = [...blocks, ...blocksOver].filter((block) => block);
     if (blocks.length > 0) {
       // console.log('all blocks:', blocks);
+      // console.log('pre value:', name, JSON.stringify(value, null, 5));
       value = {
         name: name,
         value: value,
-        relatedBlocks: blocks,
+        info: blocks,
       };
-      // console.log('value:', value);
+      // console.log('value:', name, JSON.stringify(value, null, 5));
     }
     return value;
   }
@@ -810,7 +845,7 @@ class Extractor {
       options.fileString
     );
     const type = Extractor.getComparationType(currentString);
-    const value = Extractor.extract(
+    let value = Extractor.extract(
       elements?.[1]?.trim(),
       undefined,
       undefined,
@@ -819,8 +854,23 @@ class Extractor {
       options.fileString
     );
     const currentName = typeof name === 'string' ? name : name.value;
-    // console.log('cleanComparation name', currentName);
+    // console.log('cleanComparation name', currentName, name);
     // console.log('cleanComparation value', value);
+    if (name.info != undefined && name.info.length > 0) {
+      if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+      ) {
+        value = { value: value, info: name.info, name: options.name };
+      } else {
+        if (value.info != undefined && value.info.length > 0) {
+          value.info = [...value.info, ...name.info];
+        } else {
+          value.info = name.info;
+        }
+      }
+    }
     if (currentName != undefined && currentName.trim() != '') {
       options.object[currentName] = {};
       if (type != undefined && type.trim() != '')
