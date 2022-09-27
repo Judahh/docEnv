@@ -200,6 +200,7 @@ class Generator {
         '.ts';
     if (path) {
       const file = await Generator.getFileString(path);
+      // console.log('FILE:', JSON.stringify(file, null, 5));
       let content = file.withoutComments
         .split('extends')[1]
         .split('{')[0]
@@ -581,11 +582,60 @@ class Generator {
       const baseType = (isArray && isArrayA[0]) || nameOrObjectString;
       let type = nameOrObjectString;
       // console.log('-----', type, '-----');
+      let newNOString = nameOrObjectString
+        .replaceAll(/./g, (a) => {
+          if (
+            a === 's' ||
+            a === 'S' ||
+            a === 'd' ||
+            a === 'D' ||
+            a === 'w' ||
+            a === 'W' ||
+            a === 'v' ||
+            a === '#' ||
+            a === 'p' ||
+            a === 'P' ||
+            a === 'n' ||
+            a === 'r' ||
+            a === 't' ||
+            a === 'k' ||
+            a === 'u' ||
+            a === 'x' ||
+            a === 'c' ||
+            a === 'b' ||
+            a === '0' ||
+            a === '1' ||
+            a === '2' ||
+            a === '3' ||
+            a === '4' ||
+            a === '5' ||
+            a === '6' ||
+            a === '7' ||
+            a === '8' ||
+            a === '9' ||
+            a === ' ' ||
+            a === '\n' ||
+            a === '\t'
+          ) {
+            return a;
+          }
+          return '\\' + a;
+        })
+        .replaceAll(/\n\s*\n/gm, '\\s+(\\/\\*(?:.|\\s)*?\\*\\/)*?\\s+')
+        .replaceAll(/[\n\t\ ]+/gm, '\\s+')
+        .replaceAll('\\s+\\s+', '\\s+')
+        .replaceAll('\\s\\s+', '\\s+')
+        .replaceAll('\\s+\\s', '\\s+');
+      newNOString =
+        (await Generator.getFileString(path)).withComments.match(
+          newNOString
+        )?.[0] || type;
+      // console.log('getProperty nameOrObjectString:', newNOString, path);
       if (baseTypes.includes(baseType)) {
         return { array: type };
       } else {
         // console.error('getFullObject', type, path);
-        type = await Generator.getObject(type, path);
+        type = await Generator.getObject(type, path, newNOString);
       }
       // console.log('RESULT:', type);
       // return isArray ? { array: type } : type;
@@ -647,21 +697,79 @@ class Generator {
     return value;
   }
 
-  static async getObject(nameOrObjectString?: string, path?: string) {
+  static async getObject(
+    nameOrObjectString?: string,
+    path?: string,
+    fileString?: string
+  ) {
     const file = await Generator.getImportsFromPath(path);
+    // console.log('getObject nameOrObjectString:', nameOrObjectString, path);
     // console.log('IMPORTS:', imports);
     if (nameOrObjectString) {
       const bundled = Generator.removeSpecialCharacters(
-        Extractor.bundler(nameOrObjectString, Precedence.object)
+        Extractor.bundler(
+          nameOrObjectString,
+          Precedence.object,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          fileString
+        )
       );
+
       for (const key in bundled) {
         if (Object.prototype.hasOwnProperty.call(bundled, key)) {
           let normalizedKey: string | undefined = key;
           let normalizedValue: any =
             bundled[key] && bundled[key] != 'undefined'
-              ? bundled[key]
+              ? bundled[key].value
+                ? bundled[key].value
+                : bundled[key]
               : undefined;
-
+          const description =
+            bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
+              ? bundled[key]?.info
+                  ?.filter(
+                    (aInfo) =>
+                      aInfo.ofs == undefined ||
+                      aInfo.ofs.includes(normalizedKey) ||
+                      aInfo.ofs.length == 0
+                  )
+                  ?.map((aInfo) => aInfo.description)[0]
+              : undefined;
+          let examples =
+            bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
+              ? bundled[key]?.info
+                  ?.filter(
+                    (aInfo) =>
+                      aInfo.ofs == undefined ||
+                      aInfo.ofs.includes(normalizedKey) ||
+                      aInfo.ofs.length == 0
+                  )
+                  ?.map((aInfo) => aInfo.examples)
+                  ?.flat()
+                  ?.filter((a) => a)
+              : undefined;
+          examples = examples?.length > 0 ? examples : undefined;
+          // console.log(
+          //   'getObject bundled[key]:',
+          //   JSON.stringify(bundled[key], null, 5)
+          // );
+          // console.log(
+          //   'getObject normalizedKey:',
+          //   JSON.stringify(normalizedKey, null, 5)
+          // );
+          // console.log(
+          //   'getObject normalizedValue:',
+          //   JSON.stringify(normalizedValue, null, 5)
+          // );
+          // console.log(
+          //   'getObject description:',
+          //   JSON.stringify(description, null, 5)
+          // );
+          // console.log('getObject examples:', JSON.stringify(examples, null, 5));
           const noProp = normalizedValue ? false : true;
 
           const isOptional = normalizedKey?.includes('?');
@@ -707,10 +815,24 @@ class Generator {
                 bundled[normalizedKey],
                 'undefined'
               );
+            if (description || examples) {
+              bundled[normalizedKey] = {
+                value: bundled[normalizedKey],
+                description,
+                examples,
+              };
+            }
           } else {
             let ret: any = normalizedValue;
             if (isOptional && normalizedValue)
               ret = await Generator.addOption(normalizedValue, 'undefined');
+            if (description || examples) {
+              ret = {
+                value: ret,
+                description,
+                examples,
+              };
+            }
             return ret;
           }
 

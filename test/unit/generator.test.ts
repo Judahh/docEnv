@@ -24,13 +24,20 @@ const gen0 = {
     controllerPath: '../controllers/aController',
     methods: {
       create: {
+        description: 'Create A',
         input: {
-          token: { or: ['string', 'undefined'] },
-          key: { or: ['string', 'undefined'] },
-          name: { or: ['string', 'undefined'] },
-          levelId: { or: ['number', 'undefined'] },
-          level: { or: ['string', 'undefined'] },
-          c3: { or: ['string', 'undefined'] },
+          description: 'Input for creating A',
+          value: {
+            token: { or: ['string', 'undefined'] },
+            key: { or: ['string', 'undefined'] },
+            name: {
+              description: 'Name of A',
+              value: { or: ['string', 'undefined'] },
+            },
+            levelId: { or: ['number', 'undefined'] },
+            level: { or: ['string', 'undefined'] },
+            c3: { or: ['string', 'undefined'] },
+          },
         },
         output: {
           token: { or: ['string', 'undefined'] },
@@ -62,7 +69,10 @@ const gen0 = {
         output: {
           token: 'string',
           key: { or: ['string', 'undefined'] },
-          name: { or: ['string', 'undefined'] },
+          name: {
+            description: 'Name of A',
+            value: { or: ['string', 'undefined'] },
+          },
           levelId: { or: ['number', 'undefined'] },
           level: { or: ['string', 'undefined'] },
           d2: { or: ['string', 'undefined'] },
@@ -81,11 +91,15 @@ const gen0 = {
       create: {
         input: {
           name: 'string',
-          levelId: 'number',
+          levelId: {
+            description: 'LevelId of B',
+            examples: [1],
+            value: 'number',
+          },
         },
         output: {
-          id: 'number',
-          name: 'string',
+          id: { description: 'Id of B', examples: [1, 2], value: 'number' },
+          name: { description: 'Base Name of B', value: 'string' },
           levelId: 'number',
           test: {
             or: [
@@ -104,8 +118,8 @@ const gen0 = {
           tests: { array: 'number' },
         },
         output: {
-          id: 'number',
-          name: 'string',
+          id: { description: 'Id of B', examples: [1, 2], value: 'number' },
+          name: { description: 'Base Name of B', value: 'string' },
           levelId: 'number',
           test: {
             or: [
@@ -124,8 +138,8 @@ const gen0 = {
           tests: { array: 'number' },
         },
         output: {
-          id: 'number',
-          name: 'string',
+          id: { description: 'Id of B', examples: [1, 2], value: 'number' },
+          name: { description: 'Base Name of B', value: 'string' },
           levelId: 'number',
           test: {
             or: [
@@ -145,11 +159,15 @@ const gen0 = {
         },
         input: {
           name: 'string',
-          levelId: 'number',
+          levelId: {
+            description: 'LevelId of B',
+            examples: [1],
+            value: 'number',
+          },
         },
         output: {
-          id: 'number',
-          name: 'string',
+          id: { description: 'Id of B', examples: [1, 2], value: 'number' },
+          name: { description: 'Base Name of B', value: 'string' },
           levelId: 'number',
           test: {
             or: [
@@ -185,9 +203,18 @@ const gen0 = {
       },
       read: {
         filter: {
-          id: { or: ['number', 'undefined'] },
-          name: { or: ['string', 'undefined'] },
-          levelId: { or: ['number', 'undefined'] },
+          id: {
+            description: 'Id of C',
+            value: { or: ['number', 'undefined'] },
+          },
+          name: {
+            description: 'Name of C',
+            value: { or: ['string', 'undefined'] },
+          },
+          levelId: {
+            description: 'LevelId of C',
+            value: { or: ['number', 'undefined'] },
+          },
         },
         output: {
           id: 'number',
@@ -197,10 +224,20 @@ const gen0 = {
         ...readBase,
       },
       delete: {
+        description: 'Delete C',
         filter: {
-          id: { or: ['number', 'undefined'] },
-          name: { or: ['string', 'undefined'] },
-          levelId: { or: ['number', 'undefined'] },
+          id: {
+            description: 'Id of C',
+            value: { or: ['number', 'undefined'] },
+          },
+          name: {
+            description: 'Name of C',
+            value: { or: ['string', 'undefined'] },
+          },
+          levelId: {
+            description: 'LevelId of C',
+            value: { or: ['number', 'undefined'] },
+          },
         },
         output: {
           id: 'number',
@@ -211,9 +248,18 @@ const gen0 = {
       },
       update: {
         filter: {
-          id: { or: ['number', 'undefined'] },
-          name: { or: ['string', 'undefined'] },
-          levelId: { or: ['number', 'undefined'] },
+          id: {
+            description: 'Id of C',
+            value: { or: ['number', 'undefined'] },
+          },
+          name: {
+            description: 'Name of C',
+            value: { or: ['string', 'undefined'] },
+          },
+          levelId: {
+            description: 'LevelId of C',
+            value: { or: ['number', 'undefined'] },
+          },
         },
         input: {
           name: 'string',
@@ -237,6 +283,6 @@ test('Test Simple File', async () => {
   const path = './test/sampleAPI';
   // console.log('path', path);
   const gen = await Generator.generate(path);
-  // console.log('received gen:', JSON.stringify(gen, null, 5));
+  console.log('received gen:', JSON.stringify(gen, null, 5));
   expect(gen).toMatchObject(gen0);
 });
