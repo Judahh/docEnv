@@ -721,14 +721,19 @@ class Generator {
 
       for (const key in bundled) {
         if (Object.prototype.hasOwnProperty.call(bundled, key)) {
-          let normalizedKey: string | undefined = key;
+          if (key === '[object Object]') {
+            // console.log('KEY:', key);
+            delete bundled[key];
+            continue;
+          }
+          let normalizedKey: any | string | undefined = key;
           let normalizedValue: any =
             bundled[key] && bundled[key] != 'undefined'
               ? bundled[key].value
                 ? bundled[key].value
                 : bundled[key]
               : undefined;
-          const description =
+          let descriptions =
             bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
               ? bundled[key]?.info
                   ?.filter(
@@ -737,7 +742,15 @@ class Generator {
                       aInfo.ofs.includes(normalizedKey) ||
                       aInfo.ofs.length == 0
                   )
-                  ?.map((aInfo) => aInfo.description)[0]
+                  ?.map((aInfo) => aInfo.description)
+                  ?.flat()
+                  ?.filter((a) => a)
+              : undefined;
+          descriptions = descriptions?.length > 0 ? descriptions : undefined;
+          // console.log('descriptions:', descriptions);
+          const description =
+            descriptions && descriptions.length > 0
+              ? descriptions[0]
               : undefined;
           let examples =
             bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
@@ -772,10 +785,12 @@ class Generator {
           // console.log('getObject examples:', JSON.stringify(examples, null, 5));
           const noProp = normalizedValue ? false : true;
 
-          const isOptional = normalizedKey?.includes('?');
+          const isOptional = (normalizedKey.value || normalizedKey)?.includes(
+            '?'
+          );
           normalizedKey = isOptional
-            ? normalizedKey?.replace('?', '')
-            : normalizedKey;
+            ? (normalizedKey.value || normalizedKey)?.replace('?', '')
+            : normalizedKey.value || normalizedKey;
 
           normalizedKey =
             normalizedKey && normalizedKey != 'undefined'
@@ -807,6 +822,11 @@ class Generator {
             );
           } else normalizedValue = normalizedValue || normalizedKey;
 
+          // console.log(
+          //   'getObject pre bundled:',
+          //   JSON.stringify(bundled[normalizedKey], null, 5)
+          // );
+
           if (!noProp && normalizedKey && normalizedValue) {
             bundled[normalizedKey] = normalizedValue;
 
@@ -822,6 +842,10 @@ class Generator {
                 examples,
               };
             }
+            // console.log(
+            //   'getObject pre bundled2:',
+            //   JSON.stringify(bundled[normalizedKey], null, 5)
+            // );
           } else {
             let ret: any = normalizedValue;
             if (isOptional && normalizedValue)
@@ -833,12 +857,14 @@ class Generator {
                 examples,
               };
             }
+            // console.log('getObject ret done:', JSON.stringify(ret, null, 5));
             return ret;
           }
 
           if (key !== normalizedKey) delete bundled[key];
         }
       }
+      // console.log('getObject bundled done:', JSON.stringify(bundled, null, 5));
       return bundled;
     }
     return nameOrObjectString;
