@@ -584,10 +584,17 @@ class Extractor {
 
   public static findCommentBlock(
     receivedValue?: string | number,
-    name?: string,
+    receivedName?: string,
     fileString?: string
   ) {
     let value: any = receivedValue;
+    if (typeof receivedName != 'string') return value;
+    // console.log('findCommentBlock', receivedValue, receivedName, fileString);
+    const name: any = receivedName
+      ?.replaceAll('{@', '')
+      ?.replaceAll('}', '')
+      ?.replaceAll('?', '')
+      ?.trim();
     const currentValue =
       typeof value === 'string'
         ? value.replaceAll('{@', '').replaceAll('}', '').trim()
@@ -617,13 +624,14 @@ class Extractor {
           }
         }
       }
-    const reg = `(?:(?:var)|(?:let)|(?:const))\\s+(${name})\\s`;
-    const reg2 = `(?:(?:var)|(?:let)|(?:const))\\s+(\\w+)\\s`;
+    const reg = `(?:(?:(?:var)|(?:let)|(?:const))\\s+(${name})\\s)|(?:(?:(${name}))\\??\\s*[:=]\\s*(\\w+)\\s*[,;])`;
+    const reg2 = `(?:(?:(?:var)|(?:let)|(?:const))\\s+(\\w+)\\s)|(?:(\\w+)\\??\\s*[:=]\\s*(?:\\w+)\\s*[,;])`;
     const regex = new RegExp(reg, 'g');
     const regex2 = new RegExp(reg2, 'g');
     const overs0 = fileString?.split(regex)[0];
     const overs1 = overs0?.split(regex2).reverse()[0];
     const overs = overs1 ? [overs1] : [];
+    // console.log('overs', overs, overs1, overs0, name);
     const blocksOver: any[] = [];
     if (overs && overs.length > 0)
       for (const over of overs) {
@@ -659,6 +667,7 @@ class Extractor {
       };
       // console.log('value:', name, JSON.stringify(value, null, 5));
     }
+    console.log('findCommentBlock', name, value, blocks, fileString);
     return value;
   }
 
@@ -677,8 +686,7 @@ class Extractor {
     name?: string,
     fileString?: string
   ) {
-    if (typeof value === 'string' && value?.includes('{@'))
-      console.log('getValue:', value);
+    console.log('getValue:', value, name, fileString);
     if (value == undefined)
       return Extractor.getBasicValue(value, name, fileString);
     try {
@@ -780,7 +788,7 @@ class Extractor {
           undefined,
           undefined,
           undefined,
-          options.name,
+          options.name || name,
           options.fileString
         );
     // console.log('name s:', nMatch, name);
@@ -788,7 +796,12 @@ class Extractor {
     let value = elements?.[1]?.trim();
     const gArray = Extractor.isArray(value);
     const isArray = gArray && gArray[0];
-    // console.log('isArray', isArray, gArray, value);
+    console.log(
+      'cleanAssignment:',
+      options.name || name,
+      options.fileString,
+      options.object
+    );
     value = isArray ? gArray[0] : value;
     value = isArray
       ? {
@@ -797,7 +810,7 @@ class Extractor {
             undefined,
             undefined,
             undefined,
-            options.name,
+            options.name || name,
             options.fileString
           ),
         }
@@ -806,14 +819,45 @@ class Extractor {
           undefined,
           undefined,
           undefined,
-          options.name,
+          options.name || name,
           options.fileString
         );
     // console.log('cleanAssignment name', name);
-    // console.log('cleanAssignment value', value);
-    if (name != undefined && name != '' && name != ' ')
-      options.object[name] = value;
-    else options.object = value;
+    console.log('cleanAssignment name value', name, value, options);
+    if (
+      name != undefined &&
+      typeof name === 'string' &&
+      name != '' &&
+      name != ' '
+    )
+      if (typeof options.object === 'object') {
+        options.object[name] = value;
+      } else {
+        options.object = {
+          value: options.object,
+        };
+        options.object[name] = value;
+      }
+    else {
+      let oValue = {};
+      if (typeof value === 'object') {
+        oValue = value;
+      } else {
+        oValue['value'] = value;
+      }
+      options.object = options.object[options.name || name || '']
+        ? {
+            ...options.object[options.name || name || ''],
+            ...oValue,
+          }
+        : value;
+    }
+    console.log(
+      'cleanAssignment end:',
+      options.name || name,
+      options.fileString,
+      options.object
+    );
     return options.object;
   }
 

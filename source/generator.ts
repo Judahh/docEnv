@@ -576,6 +576,7 @@ class Generator {
 
   static async getProperty(nameOrObjectString?: string, path?: string) {
     // TODO: Remover Optional e Array antes de pegar Object
+    console.log('getProperty:', nameOrObjectString, path);
     if (nameOrObjectString) {
       const isArrayA = Extractor.isArray(nameOrObjectString);
       const isArray = isArrayA && isArrayA.length;
@@ -632,9 +633,10 @@ class Generator {
         )?.[0] || type;
       // console.log('getProperty nameOrObjectString:', newNOString, path);
       if (baseTypes.includes(baseType)) {
+        console.log('baseType array:', type, path, newNOString);
         return { array: type };
       } else {
-        // console.error('getFullObject', type, path);
+        console.log('getFullObject', type, path);
         type = await Generator.getObject(type, path, newNOString);
       }
       // console.log('RESULT:', type);
@@ -706,7 +708,7 @@ class Generator {
     // console.log('getObject nameOrObjectString:', nameOrObjectString, path);
     // console.log('IMPORTS:', imports);
     if (nameOrObjectString) {
-      const bundled = Generator.removeSpecialCharacters(
+      let bundled = Generator.removeSpecialCharacters(
         Extractor.bundler(
           nameOrObjectString,
           Precedence.object,
@@ -739,7 +741,13 @@ class Generator {
                   ?.filter(
                     (aInfo) =>
                       aInfo.ofs == undefined ||
-                      aInfo.ofs.includes(normalizedKey) ||
+                      aInfo.ofs.includes(
+                        normalizedKey
+                          ?.replaceAll('{@', '')
+                          ?.replaceAll('}', '')
+                          ?.replaceAll('?', '')
+                          ?.trim()
+                      ) ||
                       aInfo.ofs.length == 0
                   )
                   ?.map((aInfo) => aInfo.description)
@@ -747,7 +755,6 @@ class Generator {
                   ?.filter((a) => a)
               : undefined;
           descriptions = descriptions?.length > 0 ? descriptions : undefined;
-          // console.log('descriptions:', descriptions);
           const description =
             descriptions && descriptions.length > 0
               ? descriptions[0]
@@ -758,7 +765,13 @@ class Generator {
                   ?.filter(
                     (aInfo) =>
                       aInfo.ofs == undefined ||
-                      aInfo.ofs.includes(normalizedKey) ||
+                      aInfo.ofs.includes(
+                        normalizedKey
+                          ?.replaceAll('{@', '')
+                          ?.replaceAll('}', '')
+                          ?.replaceAll('?', '')
+                          ?.trim()
+                      ) ||
                       aInfo.ofs.length == 0
                   )
                   ?.map((aInfo) => aInfo.examples)
@@ -766,6 +779,13 @@ class Generator {
                   ?.filter((a) => a)
               : undefined;
           examples = examples?.length > 0 ? examples : undefined;
+          console.log(
+            'getObject:',
+            normalizedKey,
+            descriptions,
+            examples,
+            bundled[key]
+          );
           // console.log(
           //   'getObject bundled[key]:',
           //   JSON.stringify(bundled[key], null, 5)
@@ -812,6 +832,7 @@ class Generator {
           // );
 
           if (newPath !== path) {
+            console.log('NEW PATH:', normalizedKey, normalizedValue, newPath);
             normalizedValue = await Generator.getObjectString(
               normalizedValue || normalizedKey,
               newPath
@@ -828,24 +849,43 @@ class Generator {
           // );
 
           if (!noProp && normalizedKey && normalizedValue) {
-            bundled[normalizedKey] = normalizedValue;
+            console.log(
+              'getObject !noProp:',
+              normalizedKey,
+              normalizedValue,
+              bundled
+            );
 
-            if (isOptional)
-              bundled[normalizedKey] = await Generator.addOption(
-                bundled[normalizedKey],
-                'undefined'
-              );
-            if (description || examples) {
-              bundled[normalizedKey] = {
-                value: bundled[normalizedKey],
-                description,
-                examples,
+            if (typeof bundled === 'string') {
+              bundled = {
+                value: bundled,
               };
             }
-            // console.log(
-            //   'getObject pre bundled2:',
-            //   JSON.stringify(bundled[normalizedKey], null, 5)
-            // );
+
+            if (
+              normalizedKey !== 0 &&
+              normalizedKey !== '0' &&
+              normalizedValue !== 'n'
+            ) {
+              bundled[normalizedKey] = normalizedValue;
+
+              if (isOptional)
+                bundled[normalizedKey] = await Generator.addOption(
+                  bundled[normalizedKey],
+                  'undefined'
+                );
+              if (description || examples) {
+                bundled[normalizedKey] = {
+                  value: bundled[normalizedKey],
+                  description,
+                  examples,
+                };
+              }
+              // console.log(
+              //   'getObject pre bundled2:',
+              //   JSON.stringify(bundled[normalizedKey], null, 5)
+              // );
+            }
           } else {
             let ret: any = normalizedValue;
             if (isOptional && normalizedValue)
@@ -864,7 +904,7 @@ class Generator {
           if (key !== normalizedKey) delete bundled[key];
         }
       }
-      // console.log('getObject bundled done:', JSON.stringify(bundled, null, 5));
+      console.log('getObject bundled done:', JSON.stringify(bundled, null, 5));
       return bundled;
     }
     return nameOrObjectString;
