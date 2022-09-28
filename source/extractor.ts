@@ -667,7 +667,13 @@ class Extractor {
       };
       // console.log('value:', name, JSON.stringify(value, null, 5));
     }
-    console.log('findCommentBlock', name, value, blocks, fileString);
+    // console.trace(
+    //   'findCommentBlock',
+    //   name,
+    //   value,
+    //   JSON.stringify(blocks, null, 5),
+    //   fileString
+    // );
     return value;
   }
 
@@ -686,7 +692,7 @@ class Extractor {
     name?: string,
     fileString?: string
   ) {
-    console.log('getValue:', value, name, fileString);
+    // console.log('getValue:', value, name, fileString);
     if (value == undefined)
       return Extractor.getBasicValue(value, name, fileString);
     try {
@@ -796,12 +802,12 @@ class Extractor {
     let value = elements?.[1]?.trim();
     const gArray = Extractor.isArray(value);
     const isArray = gArray && gArray[0];
-    console.log(
-      'cleanAssignment:',
-      options.name || name,
-      options.fileString,
-      options.object
-    );
+    // console.log(
+    //   'cleanAssignment:',
+    //   options.name || name,
+    //   options.fileString,
+    //   options.object
+    // );
     value = isArray ? gArray[0] : value;
     value = isArray
       ? {
@@ -823,7 +829,7 @@ class Extractor {
           options.fileString
         );
     // console.log('cleanAssignment name', name);
-    console.log('cleanAssignment name value', name, value, options);
+    // console.log('cleanAssignment name value', name, value, options);
     if (
       name != undefined &&
       typeof name === 'string' &&
@@ -852,9 +858,9 @@ class Extractor {
           }
         : value;
     }
-    console.log(
+    console.trace(
       'cleanAssignment end:',
-      options.name || name,
+      JSON.stringify(options.name || name, null, 5),
       options.fileString,
       options.object
     );
@@ -1110,7 +1116,19 @@ class Extractor {
 
     for (const object of objects) {
       const currentString = object.trim();
-      // console.log('cleanObject start', currentString, currentString.length);
+      // console.trace(
+      //   'cleanObject start',
+      //   JSON.stringify(
+      //     {
+      //       string: currentString,
+      //       object: options.object,
+      //       name: options.name,
+      //       fileString: options.fileString,
+      //     },
+      //     null,
+      //     5
+      //   )
+      // );
       options.object = Extractor.cleanAssignment({
         string: currentString,
         object: options.object,

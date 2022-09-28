@@ -540,15 +540,18 @@ class Generator {
         const method = page.methods[key];
         method.filter = await Generator.getProperty(
           method.filter as string,
-          path
+          path,
+          'filter'
         );
         method.input = await Generator.getProperty(
           method.input as string,
-          path
+          path,
+          'input'
         );
         method.output = await Generator.getProperty(
           method.output as string,
-          path
+          path,
+          'output'
         );
         // console.log('Method:', method);
       }
@@ -574,9 +577,13 @@ class Generator {
     return found;
   }
 
-  static async getProperty(nameOrObjectString?: string, path?: string) {
+  static async getProperty(
+    nameOrObjectString?: string,
+    path?: string,
+    name?: string
+  ) {
     // TODO: Remover Optional e Array antes de pegar Object
-    console.log('getProperty:', nameOrObjectString, path);
+    // console.log('getProperty:', nameOrObjectString, path);
     if (nameOrObjectString) {
       const isArrayA = Extractor.isArray(nameOrObjectString);
       const isArray = isArrayA && isArrayA.length;
@@ -633,11 +640,11 @@ class Generator {
         )?.[0] || type;
       // console.log('getProperty nameOrObjectString:', newNOString, path);
       if (baseTypes.includes(baseType)) {
-        console.log('baseType array:', type, path, newNOString);
+        // console.log('baseType array:', type, path, newNOString);
         return { array: type };
       } else {
-        console.log('getFullObject', type, path);
-        type = await Generator.getObject(type, path, newNOString);
+        // console.trace('getFullObject', type, path);
+        type = await Generator.getObject(type, path, newNOString, name);
       }
       // console.log('RESULT:', type);
       // return isArray ? { array: type } : type;
@@ -702,12 +709,13 @@ class Generator {
   static async getObject(
     nameOrObjectString?: string,
     path?: string,
-    fileString?: string
+    fileString?: string,
+    name?: string
   ) {
     const file = await Generator.getImportsFromPath(path);
     // console.log('getObject nameOrObjectString:', nameOrObjectString, path);
     // console.log('IMPORTS:', imports);
-    if (nameOrObjectString) {
+    if (nameOrObjectString != undefined) {
       let bundled = Generator.removeSpecialCharacters(
         Extractor.bundler(
           nameOrObjectString,
@@ -716,195 +724,224 @@ class Generator {
           undefined,
           undefined,
           undefined,
-          undefined,
+          name,
           fileString
         )
       );
 
-      for (const key in bundled) {
-        if (Object.prototype.hasOwnProperty.call(bundled, key)) {
-          if (key === '[object Object]') {
-            // console.log('KEY:', key);
-            delete bundled[key];
-            continue;
-          }
-          let normalizedKey: any | string | undefined = key;
-          let normalizedValue: any =
-            bundled[key] && bundled[key] != 'undefined'
-              ? bundled[key].value
+      if (typeof bundled !== 'string') {
+        for (const key in bundled) {
+          if (Object.prototype.hasOwnProperty.call(bundled, key)) {
+            if (key === '[object Object]') {
+              console.log('KEY:', key);
+              delete bundled[key];
+              continue;
+            }
+            console.log('KEY:', key);
+            let normalizedKey: any | string | undefined = key;
+            let normalizedValue: any =
+              bundled[key] && bundled[key] != 'undefined'
                 ? bundled[key].value
-                : bundled[key]
-              : undefined;
-          let descriptions =
-            bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
-              ? bundled[key]?.info
-                  ?.filter(
-                    (aInfo) =>
-                      aInfo.ofs == undefined ||
-                      aInfo.ofs.includes(
-                        normalizedKey
-                          ?.replaceAll('{@', '')
-                          ?.replaceAll('}', '')
-                          ?.replaceAll('?', '')
-                          ?.trim()
-                      ) ||
-                      aInfo.ofs.length == 0
-                  )
-                  ?.map((aInfo) => aInfo.description)
-                  ?.flat()
-                  ?.filter((a) => a)
-              : undefined;
-          descriptions = descriptions?.length > 0 ? descriptions : undefined;
-          const description =
-            descriptions && descriptions.length > 0
-              ? descriptions[0]
-              : undefined;
-          let examples =
-            bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
-              ? bundled[key]?.info
-                  ?.filter(
-                    (aInfo) =>
-                      aInfo.ofs == undefined ||
-                      aInfo.ofs.includes(
-                        normalizedKey
-                          ?.replaceAll('{@', '')
-                          ?.replaceAll('}', '')
-                          ?.replaceAll('?', '')
-                          ?.trim()
-                      ) ||
-                      aInfo.ofs.length == 0
-                  )
-                  ?.map((aInfo) => aInfo.examples)
-                  ?.flat()
-                  ?.filter((a) => a)
-              : undefined;
-          examples = examples?.length > 0 ? examples : undefined;
-          console.log(
-            'getObject:',
-            normalizedKey,
-            descriptions,
-            examples,
-            bundled[key]
-          );
-          // console.log(
-          //   'getObject bundled[key]:',
-          //   JSON.stringify(bundled[key], null, 5)
-          // );
-          // console.log(
-          //   'getObject normalizedKey:',
-          //   JSON.stringify(normalizedKey, null, 5)
-          // );
-          // console.log(
-          //   'getObject normalizedValue:',
-          //   JSON.stringify(normalizedValue, null, 5)
-          // );
-          // console.log(
-          //   'getObject description:',
-          //   JSON.stringify(description, null, 5)
-          // );
-          // console.log('getObject examples:', JSON.stringify(examples, null, 5));
-          const noProp = normalizedValue ? false : true;
-
-          const isOptional = (normalizedKey.value || normalizedKey)?.includes(
-            '?'
-          );
-          normalizedKey = isOptional
-            ? (normalizedKey.value || normalizedKey)?.replace('?', '')
-            : normalizedKey.value || normalizedKey;
-
-          normalizedKey =
-            normalizedKey && normalizedKey != 'undefined'
-              ? normalizedKey
-              : undefined;
-          // console.log('NORM:', normalizedKey, normalizedValue);
-          const newPath = await Generator.getImportPath(
-            file.imports,
-            normalizedValue || normalizedKey,
-            path
-          );
-
-          // console.log(
-          //   'NEW PATH:',
-          //   normalizedKey,
-          //   normalizedValue,
-          //   newPath,
-          //   path
-          // );
-
-          if (newPath !== path) {
-            console.log('NEW PATH:', normalizedKey, normalizedValue, newPath);
-            normalizedValue = await Generator.getObjectString(
-              normalizedValue || normalizedKey,
-              newPath
-            );
-            normalizedValue = await Generator.getProperty(
-              normalizedValue || normalizedKey,
-              newPath
-            );
-          } else normalizedValue = normalizedValue || normalizedKey;
-
-          // console.log(
-          //   'getObject pre bundled:',
-          //   JSON.stringify(bundled[normalizedKey], null, 5)
-          // );
-
-          if (!noProp && normalizedKey && normalizedValue) {
-            console.log(
-              'getObject !noProp:',
+                  ? bundled[key].value
+                  : bundled[key]
+                : undefined;
+            let descriptions =
+              bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
+                ? bundled[key]?.info
+                    ?.filter(
+                      (aInfo) =>
+                        aInfo.ofs == undefined ||
+                        aInfo.ofs.includes(
+                          normalizedKey
+                            ?.replaceAll('{@', '')
+                            ?.replaceAll('}', '')
+                            ?.replaceAll('?', '')
+                            ?.trim()
+                        ) ||
+                        aInfo.ofs.length == 0
+                    )
+                    ?.map((aInfo) => aInfo.description)
+                    ?.flat()
+                    ?.filter((a) => a)
+                : undefined;
+            descriptions = descriptions?.length > 0 ? descriptions : undefined;
+            const description =
+              descriptions && descriptions.length > 0
+                ? descriptions[0]
+                : undefined;
+            let examples =
+              bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
+                ? bundled[key]?.info
+                    ?.filter(
+                      (aInfo) =>
+                        aInfo.ofs == undefined ||
+                        aInfo.ofs.includes(
+                          normalizedKey
+                            ?.replaceAll('{@', '')
+                            ?.replaceAll('}', '')
+                            ?.replaceAll('?', '')
+                            ?.trim()
+                        ) ||
+                        aInfo.ofs.length == 0
+                    )
+                    ?.map((aInfo) => aInfo.examples)
+                    ?.flat()
+                    ?.filter((a) => a)
+                : undefined;
+            examples = examples?.length > 0 ? examples : undefined;
+            console.trace(
+              'getObject:',
               normalizedKey,
-              normalizedValue,
+              descriptions,
+              examples,
+              bundled[key],
               bundled
             );
+            // console.log(
+            //   'getObject bundled[key]:',
+            //   JSON.stringify(bundled[key], null, 5)
+            // );
+            // console.log(
+            //   'getObject normalizedKey:',
+            //   JSON.stringify(normalizedKey, null, 5)
+            // );
+            // console.log(
+            //   'getObject normalizedValue:',
+            //   JSON.stringify(normalizedValue, null, 5)
+            // );
+            // console.log(
+            //   'getObject description:',
+            //   JSON.stringify(description, null, 5)
+            // );
+            // console.log('getObject examples:', JSON.stringify(examples, null, 5));
+            const noProp = normalizedValue ? false : true;
 
-            if (typeof bundled === 'string') {
-              bundled = {
-                value: bundled,
-              };
-            }
+            const isOptional = (normalizedKey.value || normalizedKey)?.includes(
+              '?'
+            );
+            normalizedKey = isOptional
+              ? (normalizedKey.value || normalizedKey)?.replace('?', '')
+              : normalizedKey.value || normalizedKey;
 
-            if (
-              normalizedKey !== 0 &&
-              normalizedKey !== '0' &&
-              normalizedValue !== 'n'
-            ) {
-              bundled[normalizedKey] = normalizedValue;
+            normalizedKey =
+              normalizedKey && normalizedKey != 'undefined'
+                ? normalizedKey
+                : undefined;
+            // console.log('NORM:', normalizedKey, normalizedValue);
+            const newPath = await Generator.getImportPath(
+              file.imports,
+              normalizedValue || normalizedKey,
+              path
+            );
 
-              if (isOptional)
-                bundled[normalizedKey] = await Generator.addOption(
-                  bundled[normalizedKey],
-                  'undefined'
-                );
+            // console.log(
+            //   'NEW PATH:',
+            //   normalizedKey,
+            //   normalizedValue,
+            //   newPath,
+            //   path
+            // );
+
+            if (newPath !== path) {
+              console.log(
+                'NEW PATH:',
+                normalizedKey,
+                normalizedValue,
+                newPath,
+                bundled,
+                key
+              );
+              normalizedValue = await Generator.getObjectString(
+                normalizedValue || normalizedKey,
+                newPath
+              );
+              normalizedValue = await Generator.getProperty(
+                normalizedValue || normalizedKey,
+                newPath,
+                name
+              );
+            } else normalizedValue = normalizedValue || normalizedKey;
+
+            console.trace(
+              'getObject pre bundled:',
+              normalizedKey,
+              normalizedValue,
+              JSON.stringify(bundled, null, 5),
+              nameOrObjectString,
+              fileString
+            );
+
+            if (!noProp && normalizedKey && normalizedValue) {
+              if (typeof bundled === 'string') {
+                // console.trace(
+                //   'getObject bundled string:',
+                //   normalizedKey,
+                //   normalizedValue,
+                //   bundled,
+                //   nameOrObjectString,
+                //   fileString
+                // );
+
+                bundled = {
+                  value: bundled,
+                };
+              }
+
+              if (
+                normalizedKey !== 0 &&
+                normalizedKey !== '0' &&
+                normalizedValue !== 'n'
+              ) {
+                bundled[normalizedKey] = normalizedValue;
+
+                if (isOptional)
+                  bundled[normalizedKey] = await Generator.addOption(
+                    bundled[normalizedKey],
+                    'undefined'
+                  );
+                if (description || examples) {
+                  bundled[normalizedKey] = {
+                    value: bundled[normalizedKey],
+                    description,
+                    examples,
+                  };
+                }
+                // console.log(
+                //   'getObject pre bundled2:',
+                //   JSON.stringify(bundled[normalizedKey], null, 5)
+                // );
+              }
+            } else {
+              let ret: any = normalizedValue;
+              if (isOptional && normalizedValue)
+                ret = await Generator.addOption(normalizedValue, 'undefined');
               if (description || examples) {
-                bundled[normalizedKey] = {
-                  value: bundled[normalizedKey],
+                ret = {
+                  value: ret,
                   description,
                   examples,
                 };
               }
-              // console.log(
-              //   'getObject pre bundled2:',
-              //   JSON.stringify(bundled[normalizedKey], null, 5)
-              // );
+              // console.log('getObject ret done:', JSON.stringify(ret, null, 5));
+              return ret;
             }
-          } else {
-            let ret: any = normalizedValue;
-            if (isOptional && normalizedValue)
-              ret = await Generator.addOption(normalizedValue, 'undefined');
-            if (description || examples) {
-              ret = {
-                value: ret,
-                description,
-                examples,
-              };
-            }
-            // console.log('getObject ret done:', JSON.stringify(ret, null, 5));
-            return ret;
-          }
 
-          if (key !== normalizedKey) delete bundled[key];
+            if (key !== normalizedKey) delete bundled[key];
+          }
         }
+        console.log(
+          'getObject bundled done:',
+          JSON.stringify(bundled, null, 5)
+        );
+      } else {
+        console.log(
+          'getObject bundled else:',
+          name,
+          bundled,
+          nameOrObjectString,
+          path
+        );
       }
-      console.log('getObject bundled done:', JSON.stringify(bundled, null, 5));
       return bundled;
     }
     return nameOrObjectString;
