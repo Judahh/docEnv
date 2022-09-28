@@ -624,14 +624,15 @@ class Extractor {
           }
         }
       }
-    const reg = `(?:(?:(?:var)|(?:let)|(?:const))\\s+(${name})\\s)|(?:(?:(${name}))\\??\\s*[:=]\\s*(\\w+)\\s*[,;])`;
+
+    const reg = `(?:(?:(?:var)|(?:let)|(?:const))\\s+(${name})\\s)|(?:(?:(${name}))\\??\\s*[:=]\\s*(\\w+)\\s*[,;])|(?:(?:(?:var)|(?:let)|(?:const))\\s+(${currentValue})\\s)|(?:(?:(${currentValue}))\\??\\s*[:=]\\s*(\\w+)\\s*[,;])`;
     const reg2 = `(?:(?:(?:var)|(?:let)|(?:const))\\s+(\\w+)\\s)|(?:(\\w+)\\??\\s*[:=]\\s*(?:\\w+)\\s*[,;])`;
     const regex = new RegExp(reg, 'g');
     const regex2 = new RegExp(reg2, 'g');
     const overs0 = fileString?.split(regex)[0];
     const overs1 = overs0?.split(regex2).reverse()[0];
     const overs = overs1 ? [overs1] : [];
-    // console.log('overs', overs, overs1, overs0, name);
+    console.log('overs', overs, overs1, overs0, name, reg, reg2);
     const blocksOver: any[] = [];
     if (overs && overs.length > 0)
       for (const over of overs) {
@@ -667,13 +668,14 @@ class Extractor {
       };
       // console.log('value:', name, JSON.stringify(value, null, 5));
     }
-    // console.trace(
-    //   'findCommentBlock',
-    //   name,
-    //   value,
-    //   JSON.stringify(blocks, null, 5),
-    //   fileString
-    // );
+    console.trace(
+      'findCommentBlock',
+      name,
+      value,
+      currentValue,
+      JSON.stringify(blocks, null, 5),
+      fileString
+    );
     return value;
   }
 
@@ -785,7 +787,7 @@ class Extractor {
     }
     // console.log('cleanAssignment elements', elements, options.string, match);
     let name = elements?.[0]?.trim();
-    // console.log('name p:', name);
+    console.log('name p:', name, options.name);
     const nMatch = name?.match(/\w+\s*\?\s*:*/i);
     name = nMatch
       ? '{@' + name + '}'
@@ -794,7 +796,7 @@ class Extractor {
           undefined,
           undefined,
           undefined,
-          options.name || name,
+          name,
           options.fileString
         );
     // console.log('name s:', nMatch, name);
@@ -816,7 +818,7 @@ class Extractor {
             undefined,
             undefined,
             undefined,
-            options.name || name,
+            name,
             options.fileString
           ),
         }
@@ -825,7 +827,7 @@ class Extractor {
           undefined,
           undefined,
           undefined,
-          options.name || name,
+          name,
           options.fileString
         );
     // console.log('cleanAssignment name', name);
@@ -858,12 +860,12 @@ class Extractor {
           }
         : value;
     }
-    console.trace(
-      'cleanAssignment end:',
-      JSON.stringify(options.name || name, null, 5),
-      options.fileString,
-      options.object
-    );
+    // console.trace(
+    //   'cleanAssignment end:',
+    //   JSON.stringify(options.name || name, null, 5),
+    //   options.fileString,
+    //   options.object
+    // );
     return options.object;
   }
 

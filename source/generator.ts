@@ -691,7 +691,11 @@ class Generator {
     }
     // console.log('removeSpecialCharacters B', value);
     if (typeof value === 'string') {
-      value = value?.replace('{@', '')?.replace('}', '');
+      value = value
+        ?.replace('{@', '')
+        ?.replace('}', '')
+        // ?.replace('?', '')
+        ?.trim();
     } else {
       for (const key in value) {
         if (Object.prototype.hasOwnProperty.call(value, key)) {
@@ -724,7 +728,7 @@ class Generator {
           undefined,
           undefined,
           undefined,
-          name,
+          name?.replaceAll('{@', '')?.replaceAll('}', '')?.trim(),
           fileString
         )
       );
@@ -733,21 +737,40 @@ class Generator {
         for (const key in bundled) {
           if (Object.prototype.hasOwnProperty.call(bundled, key)) {
             if (key === '[object Object]') {
-              console.log('KEY:', key);
+              console.log('KEY2:', key);
               delete bundled[key];
               continue;
             }
-            console.log('KEY:', key);
+            // console.log('KEY:', key);
             let normalizedKey: any | string | undefined = key;
-            let normalizedValue: any =
-              bundled[key] && bundled[key] != 'undefined'
-                ? bundled[key].value
-                  ? bundled[key].value
-                  : bundled[key]
+
+            const isOptional = (normalizedKey.value || normalizedKey)?.includes(
+              '?'
+            );
+            normalizedKey = isOptional
+              ? (normalizedKey.value || normalizedKey)?.replace('?', '')
+              : normalizedKey.value || normalizedKey;
+
+            if (isOptional) {
+              bundled[normalizedKey] = bundled[key];
+            }
+
+            normalizedKey =
+              normalizedKey && normalizedKey != 'undefined'
+                ? normalizedKey
                 : undefined;
+            let normalizedValue: any =
+              bundled[normalizedKey] && bundled[normalizedKey] != 'undefined'
+                ? bundled[normalizedKey].value
+                  ? bundled[normalizedKey].value
+                  : bundled[normalizedKey]
+                : undefined;
+            const noProp = normalizedValue ? false : true;
             let descriptions =
-              bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
-                ? bundled[key]?.info
+              bundled[normalizedKey] &&
+              bundled[normalizedKey] != 'undefined' &&
+              bundled[normalizedKey]?.info
+                ? bundled[normalizedKey]?.info
                     ?.filter(
                       (aInfo) =>
                         aInfo.ofs == undefined ||
@@ -770,8 +793,8 @@ class Generator {
                 ? descriptions[0]
                 : undefined;
             let examples =
-              bundled[key] && bundled[key] != 'undefined' && bundled[key]?.info
-                ? bundled[key]?.info
+              bundled[normalizedKey] && bundled[normalizedKey] != 'undefined' && bundled[normalizedKey]?.info
+                ? bundled[normalizedKey]?.info
                     ?.filter(
                       (aInfo) =>
                         aInfo.ofs == undefined ||
@@ -794,12 +817,14 @@ class Generator {
               normalizedKey,
               descriptions,
               examples,
-              bundled[key],
-              bundled
+              nameOrObjectString,
+              name,
+              JSON.stringify(bundled[normalizedKey], null, 5),
+              JSON.stringify(bundled, null, 5)
             );
             // console.log(
-            //   'getObject bundled[key]:',
-            //   JSON.stringify(bundled[key], null, 5)
+            //   'getObject bundled[normalizedKey]:',
+            //   JSON.stringify(bundled[normalizedKey], null, 5)
             // );
             // console.log(
             //   'getObject normalizedKey:',
@@ -814,19 +839,6 @@ class Generator {
             //   JSON.stringify(description, null, 5)
             // );
             // console.log('getObject examples:', JSON.stringify(examples, null, 5));
-            const noProp = normalizedValue ? false : true;
-
-            const isOptional = (normalizedKey.value || normalizedKey)?.includes(
-              '?'
-            );
-            normalizedKey = isOptional
-              ? (normalizedKey.value || normalizedKey)?.replace('?', '')
-              : normalizedKey.value || normalizedKey;
-
-            normalizedKey =
-              normalizedKey && normalizedKey != 'undefined'
-                ? normalizedKey
-                : undefined;
             // console.log('NORM:', normalizedKey, normalizedValue);
             const newPath = await Generator.getImportPath(
               file.imports,
@@ -843,14 +855,14 @@ class Generator {
             // );
 
             if (newPath !== path) {
-              console.log(
-                'NEW PATH:',
-                normalizedKey,
-                normalizedValue,
-                newPath,
-                bundled,
-                key
-              );
+              // console.log(
+              //   'NEW PATH:',
+              //   normalizedKey,
+              //   normalizedValue,
+              //   newPath,
+              //   bundled,
+              //   key
+              // );
               normalizedValue = await Generator.getObjectString(
                 normalizedValue || normalizedKey,
                 newPath
@@ -862,14 +874,14 @@ class Generator {
               );
             } else normalizedValue = normalizedValue || normalizedKey;
 
-            console.trace(
-              'getObject pre bundled:',
-              normalizedKey,
-              normalizedValue,
-              JSON.stringify(bundled, null, 5),
-              nameOrObjectString,
-              fileString
-            );
+            // console.trace(
+            //   'getObject pre bundled:',
+            //   normalizedKey,
+            //   normalizedValue,
+            //   JSON.stringify(bundled, null, 5),
+            //   nameOrObjectString,
+            //   fileString
+            // );
 
             if (!noProp && normalizedKey && normalizedValue) {
               if (typeof bundled === 'string') {
@@ -929,10 +941,10 @@ class Generator {
             if (key !== normalizedKey) delete bundled[key];
           }
         }
-        console.log(
-          'getObject bundled done:',
-          JSON.stringify(bundled, null, 5)
-        );
+        // console.log(
+        //   'getObject bundled done:',
+        //   JSON.stringify(bundled, null, 5)
+        // );
       } else {
         console.log(
           'getObject bundled else:',
