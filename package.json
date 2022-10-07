@@ -23,6 +23,8 @@
   },
   "homepage": "https://github.com/Judahh/flexiblePersistence#readme",
   "dependencies": {
+    "acorn": "^8.8.0",
+    "acorn-loose": "^8.3.0",
     "ts-file-parser": "latest"
   },
   "devDependencies": {
