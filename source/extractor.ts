@@ -787,8 +787,9 @@ class Extractor {
     }
     // console.log('cleanAssignment elements', elements, options.string, match);
     let name = elements?.[0]?.trim();
-    console.log('name p:', name, options.name);
+    console.log('name s:', JSON.stringify(name, null, 5), options.name);
     const nMatch = name?.match(/\w+\s*\?\s*:*/i);
+    const lastName = JSON.parse(JSON.stringify(name));
     name = nMatch
       ? '{@' + name + '}'
       : Extractor.extract(
@@ -799,9 +800,10 @@ class Extractor {
           name,
           options.fileString
         );
-    // console.log('name s:', nMatch, name);
+    console.log('name e:', JSON.stringify(name, null, 5), options.name);
 
-    let value = elements?.[1]?.trim();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let value: any = elements?.[1]?.trim();
     const gArray = Extractor.isArray(value);
     const isArray = gArray && gArray[0];
     // console.log(
@@ -832,6 +834,34 @@ class Extractor {
         );
     // console.log('cleanAssignment name', name);
     // console.log('cleanAssignment name value', name, value, options);
+    console.log('value s:', JSON.stringify(value, null, 5));
+    if (typeof lastName === 'object') {
+      if (typeof value === 'object') {
+        value['info'] = [
+          ...(value['info'] || []),
+          ...(lastName['info'] || []),
+        ] as never;
+      } else {
+        value = {
+          value,
+          info: lastName['info'] || [],
+        };
+      }
+    }
+    if (typeof name === 'object') {
+      if (typeof value === 'object') {
+        value['info'] = [
+          ...(value['info'] || []),
+          ...(name['info'] || []),
+        ] as never;
+      } else {
+        value = {
+          value,
+          info: name['info'] || [],
+        };
+      }
+    }
+    console.log('value e:', JSON.stringify(value, null, 5));
     if (
       name != undefined &&
       typeof name === 'string' &&

@@ -3095,7 +3095,7 @@ to-regex-range@^5.0.1:
   dependencies:
     is-number "^7.0.0"
 
-ts-file-parser@^0.0.21:
+ts-file-parser@latest:
   version "0.0.21"
   resolved "https://registry.yarnpkg.com/ts-file-parser/-/ts-file-parser-0.0.21.tgz#aa52b2a9680b9df2555c3d2656a9600c15d1cd9c"
   integrity sha512-RnT49JK6ufn+7Th9JJnQM/YRZCGTEDJ5u38MlPtTRH4fOVIfriw16f5bBOLevRxIJ/ibCKmvqHOFsTWLkGZjUg==

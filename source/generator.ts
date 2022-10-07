@@ -643,10 +643,10 @@ class Generator {
         // console.log('baseType array:', type, path, newNOString);
         return { array: type };
       } else {
-        // console.trace('getFullObject', type, path);
+        console.trace('getFullObject', type, path);
         type = await Generator.getObject(type, path, newNOString, name);
       }
-      // console.log('RESULT:', type);
+      console.trace('RESULT:', type);
       // return isArray ? { array: type } : type;
       return type;
     }
@@ -720,6 +720,7 @@ class Generator {
     // console.log('getObject nameOrObjectString:', nameOrObjectString, path);
     // console.log('IMPORTS:', imports);
     if (nameOrObjectString != undefined) {
+      console.trace('bundler:', nameOrObjectString, name);
       let bundled = Generator.removeSpecialCharacters(
         Extractor.bundler(
           nameOrObjectString,
@@ -731,6 +732,12 @@ class Generator {
           name?.replaceAll('{@', '')?.replaceAll('}', '')?.trim(),
           fileString
         )
+      );
+      console.trace(
+        'bundler done:',
+        nameOrObjectString,
+        name,
+        JSON.stringify(bundled, null, 5)
       );
 
       if (typeof bundled !== 'string') {
@@ -793,7 +800,9 @@ class Generator {
                 ? descriptions[0]
                 : undefined;
             let examples =
-              bundled[normalizedKey] && bundled[normalizedKey] != 'undefined' && bundled[normalizedKey]?.info
+              bundled[normalizedKey] &&
+              bundled[normalizedKey] != 'undefined' &&
+              bundled[normalizedKey]?.info
                 ? bundled[normalizedKey]?.info
                     ?.filter(
                       (aInfo) =>
@@ -855,14 +864,14 @@ class Generator {
             // );
 
             if (newPath !== path) {
-              // console.log(
-              //   'NEW PATH:',
-              //   normalizedKey,
-              //   normalizedValue,
-              //   newPath,
-              //   bundled,
-              //   key
-              // );
+              console.trace(
+                'NEW PATH:',
+                normalizedKey,
+                normalizedValue,
+                newPath,
+                JSON.stringify(bundled, null, 5),
+                key
+              );
               normalizedValue = await Generator.getObjectString(
                 normalizedValue || normalizedKey,
                 newPath
@@ -946,10 +955,10 @@ class Generator {
         //   JSON.stringify(bundled, null, 5)
         // );
       } else {
-        console.log(
+        console.trace(
           'getObject bundled else:',
           name,
-          bundled,
+          JSON.stringify(bundled, null, 5),
           nameOrObjectString,
           path
         );
