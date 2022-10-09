@@ -7,6 +7,9 @@ import {
   IOutput,
 } from '../../mock/service';
 
+/**
+ * Documentation for AService
+ */
 export default class AService extends BaseService<
   {
     token?: string;
