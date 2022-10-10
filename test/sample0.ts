@@ -67,6 +67,7 @@ const readDatabaseRequestTimeoutNumber = readDatabaseRequestTimeout
 
 /**
  * Disable encryption for read database
+ * @type {boolean}
  * @example true
  */
 const readDatabaseEncryptionDisabledEnv =
@@ -81,11 +82,17 @@ const readDatabaseEncryptionDisabledEnv =
  * @example 'true'
  * @example '1'
  */
+const anError = new Error('test');
 
 /**
  * The timeout for read database requests
+ *
+ * {@label STRING_INDEXER}
  * @of readDatabaseRequestTimeout
+ * @alpha
  */
+
+const anError2 = new Error('test');
 
 export {
   writeDatabaseOptions,
@@ -98,4 +105,6 @@ export {
   readDatabaseConnectionTimeoutNumber,
   readDatabaseRequestTimeoutNumber,
   readDatabaseEncryptionDisabledEnv,
+  anError,
+  anError2,
 };

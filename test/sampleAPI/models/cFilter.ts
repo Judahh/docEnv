@@ -1,3 +1,5 @@
+import { BFilter } from './b';
+
 interface CFilter {
   /**
    * Id of C
@@ -11,6 +13,14 @@ interface CFilter {
    * LevelId of C
    */
   levelId?: number;
+  /**
+   * SAMPLE of  A & B
+   */
+  mix?: CFilter & BFilter;
+  /**
+   * SAMPLE of  A | B
+   */
+   Z?: CFilter | BFilter;
 }
 
 export default CFilter;

@@ -1,14 +1,45 @@
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-unused-vars */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import ts from 'typescript';
+import {
+  Node,
+  Type,
+  Symbol,
+  ClassDeclaration,
+  SyntaxKind,
+  Modifier,
+  TypeChecker,
+  CompilerOptions,
+  SymbolFlags,
+  TypeFlags,
+  createCompilerHost,
+  createProgram,
+  forEachChild,
+  findConfigFile,
+  readConfigFile,
+  parseJsonConfigFileContent,
+  isExportDeclaration,
+  sys,
+  isClassDeclaration,
+  Declaration,
+  displayPartsToString,
+  getCombinedModifierFlags,
+  isFunctionDeclaration,
+  isInterfaceDeclaration,
+  isTypeAliasDeclaration,
+  ModifierFlags,
+  Signature,
+  SymbolDisplayPart,
+} from 'typescript';
 
 interface DocEntry {
-  modifiers?: ts.Modifier[] | string[] | ts.Modifier | string;
+  modifiers?: Modifier[] | string[] | Modifier | string;
   name?: string;
   fileName?: string;
-  documentation?: string;
+  documentation?: {};
   type?: string;
+  types?: (string | DocEntry)[];
   constructors?: DocEntry[];
   implements?: DocEntry[];
   extends?: DocEntry[];
@@ -18,11 +49,24 @@ interface DocEntry {
 }
 
 class Doc {
-  protected checker: ts.TypeChecker | undefined;
+  protected baseTypes = [
+    'undefined',
+    'null',
+    'void',
+    'unknown',
+    'never',
+    'any',
+    'string',
+    'number',
+    'boolean',
+    'object',
+    'symbol',
+  ];
+  protected checker: TypeChecker | undefined;
   /** Generate documentation for all classes in a set of .ts files */
   async generateDocumentation(
     override?: {
-      compilerOptions?: ts.CompilerOptions;
+      compilerOptions?: CompilerOptions;
       include?: string[];
       exclude?: string[];
       files?: string[];
@@ -32,24 +76,21 @@ class Doc {
     currentDir?: string
   ): Promise<DocEntry[]> {
     const { options, fileNames } = this.getOptions(override, currentDir);
-    const host = ts.createCompilerHost(options);
+    const host = createCompilerHost(options);
     // Build a program using the set of root file names in fileNames
-    const program = ts.createProgram(fileNames, options, host);
-
-    // console.log('program', program);
+    const program = createProgram(fileNames, options, host);
 
     // Get the checker, we will use it to find more about classes
     this.checker = program.getTypeChecker();
     const output: DocEntry[] = [];
 
-    const visit = (node: ts.Node) => this.visit(node, output);
+    const visit = (node: Node) => this.visit(node, output);
 
     // Visit every sourceFile in the program
     for (const sourceFile of program.getSourceFiles()) {
       if (!sourceFile.isDeclarationFile) {
-        // console.log('sourceFile', sourceFile);
         // Walk the tree to search for classes
-        ts.forEachChild(sourceFile, visit.bind(this));
+        forEachChild(sourceFile, visit.bind(this));
       }
     }
 
@@ -58,7 +99,7 @@ class Doc {
 
   getOptions(
     override: {
-      compilerOptions?: ts.CompilerOptions;
+      compilerOptions?: CompilerOptions;
       include?: string[];
       exclude?: string[];
       files?: string[];
@@ -67,13 +108,13 @@ class Doc {
     } = {},
     currentDir = '.'
   ) {
-    const configFile = ts.findConfigFile(
+    const configFile = findConfigFile(
       currentDir,
-      ts.sys.fileExists,
+      sys.fileExists,
       'tsconfig.json'
     );
     if (!configFile) throw Error('tsconfig.json not found');
-    const { config } = ts.readConfigFile(configFile, ts.sys.readFile);
+    const { config } = readConfigFile(configFile, sys.readFile);
 
     config.compilerOptions = Object.assign(
       {},
@@ -85,11 +126,7 @@ class Doc {
     if (override.files) config.files = override.files;
     if (override.extends) config.files = override.extends;
 
-    const fileContent = ts.parseJsonConfigFileContent(
-      config,
-      ts.sys,
-      currentDir
-    );
+    const fileContent = parseJsonConfigFileContent(config, sys, currentDir);
 
     if (override.filenames) fileContent.fileNames = override.filenames;
     return {
@@ -100,49 +137,91 @@ class Doc {
   }
 
   /** visit nodes finding exported classes */
-  visit(node: ts.Node, output?: DocEntry[]) {
+  visit(node: Node, output?: DocEntry[]) {
     // Only consider exported nodes
     if (!this.isNodeExported(node)) {
       return;
     }
 
-    if (
-      (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) &&
-      node.name
-    ) {
-      // This is a top level class, get its symbol
-      const symbol = this.checker?.getSymbolAtLocation(node.name);
-      console.log('node A', ts.SyntaxKind[node.kind]);
-      if (symbol) {
-        output?.push(this.serializeClass.bind(this)(symbol, node));
-      }
-      // No need to walk any further, class expressions/inner declarations
-      // cannot be exported
-    } else if (ts.isModuleDeclaration(node)) {
-      // This is a namespace, visit its children
-      console.log('node B', ts.SyntaxKind[node.kind]);
-      ts.forEachChild(node, this.visit.bind(this));
-    } else if (
-      ts.SyntaxKind.EndOfFileToken !== node.kind &&
-      ts.SyntaxKind.FirstStatement !== node.kind
-    ) {
-      if (ts.isFunctionDeclaration(node)) {
-        const symbol = this.checker?.getSymbolAtLocation(node.name!);
-        console.log('node C', ts.SyntaxKind[node.kind]);
-        if (symbol) {
-          output?.push(this.serializeClass.bind(this)(symbol, node));
+    const symbol = (node as { name?: any })?.name
+      ? this.checker?.getSymbolAtLocation((node as { name?: any }).name)
+      : undefined;
+
+    if (symbol) {
+      // console.log('node A', SyntaxKind[node.kind]);
+      output?.push(this.serializeComponent.bind(this)(symbol, node));
+    } else {
+      // console.log('node B', SyntaxKind[node.kind]);
+      if (isExportDeclaration(node)) {
+        const symbols = this.checker?.getSymbolsInScope(
+          node,
+          SymbolFlags.BlockScopedVariable
+        );
+        for (const symbol of symbols || []) {
+          const name = symbol.getName();
+          const type = symbol
+            ? this.checker?.typeToString(
+                this.checker?.getTypeOfSymbolAtLocation(
+                  symbol,
+                  symbol.valueDeclaration!
+                )
+              )
+            : undefined;
+
+          if (
+            (name === 'name' && type === 'void') ||
+            (name === 'expect' && type === 'Expect')
+          ) {
+            continue;
+          }
+          if (symbol)
+            output?.push(this.serializeComponent.bind(this)(symbol, node));
         }
-      } else {
-        console.log('node D', ts.SyntaxKind[node.kind]);
-        ts.forEachChild(node, this.visit.bind(this));
       }
+      forEachChild(node, this.visit.bind(this));
     }
   }
 
+  serializeType(type: Type, node?: Node) {
+    const constructors = type
+      .getConstructSignatures()
+      .map((symbol) => this.serializeSignature(symbol, node));
+
+    const name =
+      (type as unknown as { intrinsicName: string })?.intrinsicName ||
+      this.checker?.typeToString(type);
+
+    // console.log('type:', name, TypeFlags[type.flags]); //, (type as any).types);
+
+    const documentation = this.serializeDocumentation.bind(this)(type.symbol);
+
+    const serializedType: DocEntry = {
+      constructors,
+      documentation,
+      name,
+      type:
+        type?.flags === TypeFlags.Union
+          ? 'or'
+          : type?.flags === TypeFlags.Intersection
+          ? 'and'
+          : undefined,
+      types: (type as any).types?.map((x: Type) => this.serializeType(x, node)),
+    };
+    if (!serializedType.documentation) delete serializedType.documentation;
+    if (!serializedType.constructors?.length)
+      delete serializedType.constructors;
+    if (!serializedType.name) delete serializedType.name;
+    if (!serializedType?.types?.length) delete serializedType?.types;
+    if (!serializedType?.type) delete serializedType?.type;
+
+    if (Object.getOwnPropertyNames(serializedType).length === 1 && name)
+      return name;
+    return serializedType;
+  }
+
   /** Serialize a symbol into a json object */
-  serializeSymbol(symbol?: ts.Symbol, node?: ts.Node): DocEntry {
-    console.log('symbol', symbol);
-    const classDeclaration = node as ts.ClassDeclaration;
+  serializeSymbol(symbol?: Symbol, node?: Node): DocEntry {
+    const classDeclaration = node as ClassDeclaration;
     const _extends = classDeclaration?.heritageClauses?.map((clause) => {
       return clause.types.map((type) => {
         // return this.checker?.getTypeAtLocation(type.expression)?.symbol?.name;
@@ -152,46 +231,67 @@ class Doc {
         );
       });
     });
-    console.log('_extends', _extends);
     const members: Array<DocEntry> = [];
     symbol?.members?.forEach((value, key) => {
       members.push(this.serializeSymbol.bind(this)(value, node));
     });
-    let type = symbol
-      ? this.checker?.typeToString(
-          this.checker?.getTypeOfSymbolAtLocation(
-            symbol,
-            symbol.valueDeclaration!
-          )
+    let name = symbol?.getName();
+    let serializedType: DocEntry | string | undefined = undefined;
+    const type: Type | undefined = symbol
+      ? this.checker?.getTypeOfSymbolAtLocation(
+          symbol,
+          symbol.valueDeclaration!
         )
       : undefined;
-    let name = symbol?.getName();
-    if (name === 'default' && type?.includes('typeof ')) {
-      name = type.replace('typeof ', '');
-      type = 'class';
+    if (
+      type &&
+      !this.baseTypes.includes(
+        (type as unknown as { intrinsicName: string }).intrinsicName
+      )
+    ) {
+      serializedType = this.serializeType.bind(this)(type, node);
+      let typeString = type ? this.checker?.typeToString(type) : undefined;
+      if (typeString === 'any' && node) {
+        if (isClassDeclaration(node)) typeString = 'class';
+        else if (isInterfaceDeclaration(node) || isTypeAliasDeclaration(node))
+          typeString = 'interface';
+        else if (isFunctionDeclaration(node)) typeString = 'function';
+      }
+      if (name === 'default' && typeString?.includes('typeof ')) {
+        name = typeString.replace('typeof ', '');
+        typeString = 'class';
+      }
     }
-    const documentation = symbol
-      ? ts.displayPartsToString(symbol.getDocumentationComment(this.checker))
-      : undefined;
+
+    const documentation = this.serializeDocumentation.bind(this)(symbol);
     const entry: DocEntry = {
       //   modifiers:
-      //     node && ts.canHaveModifiers(node)
-      //       ? (ts.getModifiers(node) as any)
+      //     node && canHaveModifiers(node)
+      //       ? (getModifiers(node) as any)
       //       : undefined,
       name,
-      type,
+      type: type?.flags === TypeFlags.Union ? TypeFlags[type.flags] : undefined,
+      types: serializedType ? [serializedType] : undefined,
       documentation,
       members,
       extends: _extends?.flat(),
     };
-    if (entry?.members?.length === 0) delete entry?.members;
-    if (!entry?.documentation || entry?.documentation?.length === 0)
-      delete entry?.documentation;
+    if (!entry?.members?.length) delete entry?.members;
+    if (!entry?.documentation) delete entry?.documentation;
+    if (
+      !entry?.types ||
+      !entry?.types?.length ||
+      (entry?.types?.length === 1 &&
+        typeof entry?.types?.[0] != 'string' &&
+        entry?.types?.[0]?.name === 'error')
+    )
+      delete entry?.types;
+
     return entry;
   }
 
   /** Serialize a class symbol information */
-  serializeClass(symbol: ts.Symbol, node?: ts.Node) {
+  serializeComponent(symbol: Symbol, node?: Node) {
     const details = this.serializeSymbol.bind(this)(symbol, node);
 
     // Get the construct signatures
@@ -203,30 +303,62 @@ class Doc {
       ?.getConstructSignatures()
       ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node));
 
+    if (!details.constructors?.length) delete details.constructors;
+
     return details;
   }
 
-  /** Serialize a signature (call or construct) */
-  serializeSignature(signature: ts.Signature, node?: ts.Node) {
-    // console.log('signature', signature);
-
-    return {
-      parameters: signature.parameters.map((symbol) =>
-        this.serializeSymbol.bind(this)(symbol, node)
-      ),
-      returnType: this.checker?.typeToString(signature.getReturnType()),
-      documentation: ts.displayPartsToString(
-        signature.getDocumentationComment(this.checker)
-      ),
+  serializeDocumentation(element?: Symbol | Signature) {
+    const text = displayPartsToString(
+      element?.getDocumentationComment(this.checker)
+    );
+    const documentation = {
+      text,
     };
+
+    const tags = element?.getJsDocTags();
+    if (tags)
+      for (const tag of tags) {
+        if (documentation[tag.name] === undefined) documentation[tag.name] = [];
+        console.log('tag:', tag.name, tag);
+        if (tag.text)
+          documentation[tag.name].push(...tag.text.map((x) => x.text));
+        else documentation[tag.name].push(true);
+      }
+    if (!tags || (!tags.length && !text)) return undefined;
+    return documentation;
+  }
+
+  /** Serialize a signature (call or construct) */
+  serializeSignature(signature: Signature, node?: Node) {
+    const parameters = signature.parameters.map((symbol) =>
+      this.serializeSymbol.bind(this)(symbol, node)
+    );
+
+    const returnType = this.checker?.typeToString(signature.getReturnType());
+
+    const documentation = this.serializeDocumentation.bind(this)(signature);
+
+    const serializedSignature: DocEntry = {
+      parameters,
+      returnType,
+      documentation,
+    };
+
+    if (!serializedSignature?.parameters?.length)
+      delete serializedSignature?.parameters;
+
+    if (!serializedSignature?.documentation)
+      delete serializedSignature?.documentation;
+
+    return serializedSignature;
   }
   /** True if this is visible outside this file, false otherwise */
-  isNodeExported(node: ts.Node): boolean {
+  isNodeExported(node: Node): boolean {
     return (
-      (ts.getCombinedModifierFlags(node as ts.Declaration) &
-        ts.ModifierFlags.Export) !==
+      (getCombinedModifierFlags(node as Declaration) & ModifierFlags.Export) !==
         0 ||
-      (!!node?.parent && node?.parent?.kind === ts.SyntaxKind.SourceFile)
+      (!!node?.parent && node?.parent?.kind === SyntaxKind.SourceFile)
     );
   }
 }

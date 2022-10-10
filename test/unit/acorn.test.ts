@@ -10,8 +10,8 @@ test('Test Simple File', async () => {
   parsed = await doc.generateDocumentation({
     filenames: [
       // './test/sampleAPI/services/aService.ts',
-      './test/sampleAPI/models/cFilter.ts',
-      // path
+      // './test/sampleAPI/models/cFilter.ts',
+      './test/sample0.ts',
     ],
   });
   console.log(
