@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-unused-vars */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { type } from 'os';
 import {
   Node,
   Type,
@@ -33,13 +34,14 @@ import {
   SymbolDisplayPart,
 } from 'typescript';
 
-interface DocEntry {
-  modifiers?: Modifier[] | string[] | Modifier | string;
+interface ODocEntry {
+  modifiers?: DocEntry[];
   name?: string;
+  text?: string;
   fileName?: string;
-  documentation?: {};
+  documentation?: DocEntry;
   type?: string;
-  types?: (string | DocEntry)[];
+  types?: DocEntry[];
   constructors?: DocEntry[];
   implements?: DocEntry[];
   extends?: DocEntry[];
@@ -47,6 +49,8 @@ interface DocEntry {
   members?: DocEntry[];
   returnType?: string;
 }
+
+type DocEntry = ODocEntry | string;
 
 class Doc {
   protected baseTypes = [
@@ -137,7 +141,7 @@ class Doc {
   }
 
   /** visit nodes finding exported classes */
-  visit(node: Node, output?: DocEntry[]) {
+  visit(node: Node, output?: Array<DocEntry | string>) {
     // Only consider exported nodes
     if (!this.isNodeExported(node)) {
       return;
@@ -220,7 +224,7 @@ class Doc {
   }
 
   /** Serialize a symbol into a json object */
-  serializeSymbol(symbol?: Symbol, node?: Node): DocEntry {
+  serializeSymbol(symbol?: Symbol, node?: Node): DocEntry | string {
     const classDeclaration = node as ClassDeclaration;
     const _extends = classDeclaration?.heritageClauses?.map((clause) => {
       return clause.types.map((type) => {
@@ -231,7 +235,7 @@ class Doc {
         );
       });
     });
-    const members: Array<DocEntry> = [];
+    const members: Array<DocEntry | string> = [];
     symbol?.members?.forEach((value, key) => {
       members.push(this.serializeSymbol.bind(this)(value, node));
     });
@@ -263,6 +267,13 @@ class Doc {
       }
     }
 
+    if (
+      serializedType &&
+      typeof serializedType === 'string' &&
+      serializedType == 'error'
+    )
+      serializedType = undefined;
+
     const documentation = this.serializeDocumentation.bind(this)(symbol);
     const entry: DocEntry = {
       //   modifiers:
@@ -277,15 +288,20 @@ class Doc {
       extends: _extends?.flat(),
     };
     if (!entry?.members?.length) delete entry?.members;
+    if (!entry?.extends?.length) delete entry?.extends;
     if (!entry?.documentation) delete entry?.documentation;
+    if (!entry?.type) delete entry?.type;
     if (
       !entry?.types ||
       !entry?.types?.length ||
       (entry?.types?.length === 1 &&
-        typeof entry?.types?.[0] != 'string' &&
-        entry?.types?.[0]?.name === 'error')
+        ((typeof entry?.types?.[0] != 'string' &&
+          entry?.types?.[0]?.name === 'error') ||
+          entry?.types?.[0] === 'error'))
     )
       delete entry?.types;
+
+    if (Object.getOwnPropertyNames(entry).length === 1 && name) return name;
 
     return entry;
   }
@@ -299,6 +315,9 @@ class Doc {
       symbol,
       symbol.valueDeclaration!
     );
+
+    if (typeof details === 'string') return details;
+
     details.constructors = constructorType
       ?.getConstructSignatures()
       ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node));
@@ -319,11 +338,29 @@ class Doc {
     const tags = element?.getJsDocTags();
     if (tags)
       for (const tag of tags) {
-        if (documentation[tag.name] === undefined) documentation[tag.name] = [];
-        console.log('tag:', tag.name, tag);
+        const name = tag.name === 'param' ? 'parameters' : tag.name;
+        if (name === 'parameters') console.log('parameters:', tag);
+        if (documentation[name] === undefined) documentation[name] = [];
+        console.log('tag:', name, tag);
         if (tag.text)
-          documentation[tag.name].push(...tag.text.map((x) => x.text));
-        else documentation[tag.name].push(true);
+          if (name === 'parameters') {
+            const parameterName = tag.text.filter(
+              (p) => p.kind === 'parameterName'
+            )[0].text;
+            const parameterText = tag.text
+              .filter((p) => p.kind === 'text')
+              .map((p) => p.text.trim())
+              .filter((p) => p && p !== '')
+              .join(' ');
+            const doc: DocEntry = {
+              name: parameterName,
+              text: parameterText,
+            } as unknown as ODocEntry;
+            if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
+            if (!doc.text) documentation[name].push(parameterName);
+            else documentation[name].push(doc);
+          } else documentation[name].push(...tag.text.map((x) => x.text));
+        else documentation[name].push(true);
       }
     if (!tags || (!tags.length && !text)) return undefined;
     return documentation;
