@@ -40,14 +40,15 @@ interface ODocEntry {
   text?: string;
   fileName?: string;
   documentation?: DocEntry;
-  type?: string;
+  type?: DocEntry;
   types?: DocEntry[];
   constructors?: DocEntry[];
+  call?: DocEntry[];
   implements?: DocEntry[];
   extends?: DocEntry[];
   parameters?: DocEntry[];
   members?: DocEntry[];
-  returnType?: string;
+  returnType?: DocEntry;
 }
 
 type DocEntry = ODocEntry | string;
@@ -191,16 +192,21 @@ class Doc {
       .getConstructSignatures()
       .map((symbol) => this.serializeSignature(symbol, node));
 
+    const call = type
+      .getCallSignatures()
+      .map((symbol) => this.serializeSignature(symbol, node));
+
     const name =
       (type as unknown as { intrinsicName: string })?.intrinsicName ||
       this.checker?.typeToString(type);
 
-    // console.log('type:', name, TypeFlags[type.flags]); //, (type as any).types);
+    console.log('type:', name); //, (type as any).types);
 
     const documentation = this.serializeDocumentation.bind(this)(type.symbol);
 
     const serializedType: DocEntry = {
       constructors,
+      call,
       documentation,
       name,
       type:
@@ -214,6 +220,7 @@ class Doc {
     if (!serializedType.documentation) delete serializedType.documentation;
     if (!serializedType.constructors?.length)
       delete serializedType.constructors;
+    if (!serializedType.call?.length) delete serializedType.call;
     if (!serializedType.name) delete serializedType.name;
     if (!serializedType?.types?.length) delete serializedType?.types;
     if (!serializedType?.type) delete serializedType?.type;
@@ -322,7 +329,12 @@ class Doc {
       ?.getConstructSignatures()
       ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node));
 
+    details.call = constructorType
+      ?.getCallSignatures()
+      ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node));
+
     if (!details.constructors?.length) delete details.constructors;
+    if (!details.call?.length) delete details.call;
 
     return details;
   }
@@ -339,9 +351,7 @@ class Doc {
     if (tags)
       for (const tag of tags) {
         const name = tag.name === 'param' ? 'parameters' : tag.name;
-        if (name === 'parameters') console.log('parameters:', tag);
         if (documentation[name] === undefined) documentation[name] = [];
-        console.log('tag:', name, tag);
         if (tag.text)
           if (name === 'parameters') {
             const parameterName = tag.text.filter(
@@ -372,7 +382,10 @@ class Doc {
       this.serializeSymbol.bind(this)(symbol, node)
     );
 
-    const returnType = this.checker?.typeToString(signature.getReturnType());
+    const returnType = this.serializeType.bind(this)(
+      signature.getReturnType(),
+      node
+    );
 
     const documentation = this.serializeDocumentation.bind(this)(signature);
 
