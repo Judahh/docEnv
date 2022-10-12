@@ -28,6 +28,11 @@ import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare obj
  *? environment variables
  **/
 
+/**
+ *! TODO:
+ *! improve documentation with typescript types
+ **/
+
 import { type } from 'os';
 import {
   Node,
