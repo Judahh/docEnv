@@ -23,13 +23,15 @@
   },
   "homepage": "https://github.com/Judahh/flexiblePersistence#readme",
   "dependencies": {
-    "typescript": "latest",
-    "comment-json": "latest"
+    "comment-json": "latest",
+    "lodash": "latest",
+    "typescript": "latest"
   },
   "devDependencies": {
     "@types/acorn": "latest",
     "@types/jest": "latest",
     "@types/node": "latest",
+    "@types/lodash": "latest",
     "@typescript-eslint/eslint-plugin": "latest",
     "@typescript-eslint/parser": "latest",
     "eslint": "latest",
