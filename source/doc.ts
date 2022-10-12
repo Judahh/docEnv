@@ -21,6 +21,13 @@ import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare obj
  * });
  **/
 
+/**
+ *! TODO:
+ *! Add special variables result
+ *? Special variables: are variables that receives one or more
+ *? environment variables
+ **/
+
 import { type } from 'os';
 import {
   Node,
