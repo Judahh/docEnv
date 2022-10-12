@@ -42,7 +42,7 @@ interface ODocEntry {
   documentation?: DocEntry;
   type?: DocEntry;
   types?: DocEntry[];
-  constructors?: DocEntry[];
+  signatures?: DocEntry[];
   call?: DocEntry[];
   implements?: DocEntry[];
   extends?: DocEntry[];
@@ -50,6 +50,17 @@ interface ODocEntry {
   members?: DocEntry[];
   returnType?: DocEntry;
 }
+
+const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
+  return new Promise<T>((resolve, reject) => {
+    setTimeout(async () => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const result: T = await toCall.bind(self)(...args);
+      resolve(result);
+    }, 0);
+  });
+};
 
 type DocEntry = ODocEntry | string;
 
@@ -192,7 +203,7 @@ class Doc {
       .getConstructSignatures()
       .map((symbol) => this.serializeSignature(symbol, node));
 
-    const call = type
+    const calls = type
       .getCallSignatures()
       .map((symbol) => this.serializeSignature(symbol, node));
 
@@ -200,14 +211,19 @@ class Doc {
       (type as unknown as { intrinsicName: string })?.intrinsicName ||
       this.checker?.typeToString(type);
 
-    console.log('type:', name); //, (type as any).types);
+    const members: Array<DocEntry | string> = [];
+    if ((name && this.baseTypes.includes(name)) || name === 'error')
+      return name;
+    (type as unknown as Symbol)?.members?.forEach((value, key) => {
+      members.push(this.serializeSymbol.bind(this)(value, node));
+    });
 
     const documentation = this.serializeDocumentation.bind(this)(type.symbol);
 
     const serializedType: DocEntry = {
-      constructors,
-      call,
+      signatures: [...constructors, calls].flat(),
       documentation,
+      members,
       name,
       type:
         type?.flags === TypeFlags.Union
@@ -218,12 +234,16 @@ class Doc {
       types: (type as any).types?.map((x: Type) => this.serializeType(x, node)),
     };
     if (!serializedType.documentation) delete serializedType.documentation;
-    if (!serializedType.constructors?.length)
-      delete serializedType.constructors;
+    if (!serializedType.signatures?.length) delete serializedType.signatures;
     if (!serializedType.call?.length) delete serializedType.call;
     if (!serializedType.name) delete serializedType.name;
     if (!serializedType?.types?.length) delete serializedType?.types;
     if (!serializedType?.type) delete serializedType?.type;
+    if (!serializedType?.members?.length) delete serializedType?.members;
+
+    console.log('type:', name);
+    console.log('type2:', members);
+    console.log('type3:', serializedType);
 
     if (Object.getOwnPropertyNames(serializedType).length === 1 && name)
       return name;
@@ -308,6 +328,8 @@ class Doc {
     )
       delete entry?.types;
 
+    console.log('symbol:', entry);
+
     if (Object.getOwnPropertyNames(entry).length === 1 && name) return name;
 
     return entry;
@@ -325,16 +347,18 @@ class Doc {
 
     if (typeof details === 'string') return details;
 
-    details.constructors = constructorType
-      ?.getConstructSignatures()
-      ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node));
+    details.signatures = [
+      ...(constructorType
+        ?.getConstructSignatures()
+        ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node)) ||
+        []),
+      ...(constructorType
+        ?.getCallSignatures()
+        ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node)) ||
+        []),
+    ].flat();
 
-    details.call = constructorType
-      ?.getCallSignatures()
-      ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node));
-
-    if (!details.constructors?.length) delete details.constructors;
-    if (!details.call?.length) delete details.call;
+    if (!details.signatures?.length) delete details.signatures;
 
     return details;
   }
