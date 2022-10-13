@@ -66,23 +66,48 @@ import {
   SymbolTable,
 } from 'typescript';
 
-interface ODocEntry {
+interface BaseDocEntry {
   modifiers?: DocEntry[];
+  id?: string | number;
   name?: string;
+  escapedName?: string;
   text?: string;
   fileName?: string;
   documentation?: DocEntry;
+  flags?: string;
   type?: DocEntry;
   types?: DocEntry[];
   signatures?: DocEntry[];
-  call?: DocEntry[];
   implements?: DocEntry[];
   extends?: DocEntry[];
   parameters?: DocEntry[];
   members?: DocEntry[];
-  tempMembers?: SymbolTable;
   returnType?: DocEntry;
 }
+
+type DocEntry = BaseDocEntry | string;
+
+interface BaseTempDocEntry {
+  tempMembers?: { key: string; value: Symbol }[];
+  modifiers?: TempDocEntry[];
+  id?: string | number;
+  name?: string;
+  escapedName?: string;
+  text?: string;
+  fileName?: string;
+  documentation?: TempDocEntry;
+  flags?: string;
+  type?: TempDocEntry;
+  types?: TempDocEntry[];
+  signatures?: TempDocEntry[];
+  implements?: TempDocEntry[];
+  extends?: TempDocEntry[];
+  parameters?: TempDocEntry[];
+  members?: TempDocEntry[];
+  returnType?: TempDocEntry;
+}
+
+type TempDocEntry = BaseTempDocEntry | string | undefined;
 
 const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
   return new Promise<T>((resolve, reject) => {
@@ -94,8 +119,6 @@ const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
     }, 0);
   });
 };
-
-type DocEntry = ODocEntry | string | undefined;
 
 class Doc {
   protected baseTypes = [
@@ -123,17 +146,20 @@ class Doc {
       filenames?: string[];
     },
     currentDir?: string
-  ): Promise<DocEntry[]> {
-    const { options, fileNames } = this.getOptions(override, currentDir);
+  ): Promise<TempDocEntry[]> {
+    const { options, fileNames, rootDir } = this.getOptions(
+      override,
+      currentDir
+    );
     const host = createCompilerHost(options);
     // Build a program using the set of root file names in fileNames
     const program = createProgram(fileNames, options, host);
 
     // Get the checker, we will use it to find more about classes
     this.checker = program.getTypeChecker();
-    const output: DocEntry[] = [];
+    const output: TempDocEntry[] = [];
 
-    const visit = (node: Node) => this.visit(node, output);
+    const visit = (node: Node) => this.visit(node, output, rootDir);
 
     // Visit every sourceFile in the program
     for (const sourceFile of program.getSourceFiles()) {
@@ -143,7 +169,11 @@ class Doc {
       }
     }
 
-    return output;
+    let refactoredOutput = this.refactorMembers(output);
+
+    refactoredOutput = this.refactorObjects(refactoredOutput);
+
+    return refactoredOutput;
   }
 
   getOptions(
@@ -181,12 +211,75 @@ class Doc {
     return {
       options: fileContent.options,
       fileNames: fileContent.fileNames,
+      rootDir: currentDir,
       errors: fileContent.errors,
     };
   }
 
+  refactorObjects(output: TempDocEntry[]): TempDocEntry[] {
+    return output;
+  }
+
+  refactorTempMembers(output: TempDocEntry[], node, name): TempDocEntry[] {
+    const members: Array<TempDocEntry> = [];
+
+    (type as unknown as Symbol)?.members?.forEach((value, key) => {
+      members.push(this.serializeSymbol.bind(this)(value, node, name));
+    });
+    return output;
+  }
+
+  refactorMembers(output: TempDocEntry[]): TempDocEntry[] {
+    return output;
+    // return output.map((entry) => {
+    //   if (typeof entry === 'string') return entry;
+
+    //   const newEntry: TempDocEntry = {};
+    //   for (const key in entry) {
+    //     if (Object.prototype.hasOwnProperty.call(entry, key)) {
+    //       const element = entry[key];
+    //       if (key === 'tempMembers') {
+    //         newEntry.members = this.refactorTempMembers.bind(this)(
+    //           element,
+    //           node,
+    //           entry.name
+    //         );
+    //       } else if (typeof element === 'object') {
+    //         newEntry[key] = this.refactorMembers.bind(this)(element);
+    //       } else {
+    //         newEntry[key] = element;
+    //       }
+    //     }
+    //   }
+    //   return newEntry;
+    // });
+  }
+
+  getComponentWithFileName(
+    symbol?: Symbol,
+    node?: Node,
+    rootDir?: string
+  ): TempDocEntry {
+    const fileName = node?.getSourceFile()?.fileName;
+    let component = this.serializeComponent.bind(this)(symbol, node);
+    if (
+      (rootDir == undefined || rootDir == '.') &&
+      (fileName?.[0] == '/' || fileName == undefined)
+    )
+      return component;
+    if (component && typeof component !== 'string') {
+      component.fileName = fileName;
+    } else {
+      component = {
+        fileName,
+        name: component,
+      };
+    }
+    return component;
+  }
+
   /** visit nodes finding exported classes */
-  visit(node: Node, output?: Array<DocEntry>) {
+  visit(node: Node, output?: Array<TempDocEntry>, rootDir?: string): void {
     // Only consider exported nodes
     if (!this.isNodeExported(node)) {
       return;
@@ -197,8 +290,9 @@ class Doc {
       : undefined;
 
     if (symbol) {
-      // console.log('node A', SyntaxKind[node.kind]);
-      output?.push(this.serializeComponent.bind(this)(symbol, node));
+      output?.push(
+        this.getComponentWithFileName.bind(this)(symbol, node, rootDir)
+      );
     } else {
       // console.log('node B', SyntaxKind[node.kind]);
       if (isExportDeclaration(node)) {
@@ -224,25 +318,31 @@ class Doc {
             continue;
           }
           if (symbol)
-            output?.push(this.serializeComponent.bind(this)(symbol, node));
+            output?.push(
+              this.getComponentWithFileName.bind(this)(symbol, node, rootDir)
+            );
         }
       }
       forEachChild(node, this.visit.bind(this));
     }
   }
 
-  cleanUp(doc: DocEntry) {
+  cleanUp(doc: TempDocEntry) {
     if (typeof doc === 'string') return doc;
     if (doc) {
       if (!doc?.documentation) delete doc.documentation;
       if (!doc?.signatures?.length) delete doc.signatures;
-      if (!doc?.call?.length) delete doc.call;
+      if (doc?.id == undefined) delete doc.id;
       if (!doc?.name) delete doc.name;
+      if (!doc?.escapedName || doc?.escapedName == 'default')
+        delete doc.escapedName;
       if (!doc?.types?.length) delete doc?.types;
       if (!doc?.type) delete doc?.type;
       if (!doc?.members?.length) delete doc?.members;
-      if (!doc?.tempMembers || doc?.tempMembers?.size === 0)
+      if (!doc?.tempMembers || doc?.tempMembers?.length === 0) {
+        doc.tempMembers = undefined;
         delete doc?.tempMembers;
+      }
       if (!doc?.extends?.length) delete doc?.extends;
       if (
         !doc?.types ||
@@ -260,86 +360,149 @@ class Doc {
     return doc;
   }
 
-  serializeType(type: Type, node?: Node, parentName?: string) {
-    const name =
-      (type as unknown as { intrinsicName: string })?.intrinsicName ||
-      this.checker?.typeToString(type);
-
-    if (name === parentName) return undefined;
-
-    const constructors = type
-      .getConstructSignatures()
-      .map((symbol) => this.serializeSignature(symbol, node));
-
-    const calls = type
-      .getCallSignatures()
-      .map((symbol) => this.serializeSignature(symbol, node));
-
-    const tempMembers: SymbolTable | undefined = (type as unknown as Symbol)
-      ?.members;
-
-    // const members: Array<DocEntry> = [];
-    // if ((name && this.baseTypes.includes(name)) || name === 'error')
-    //   return name;
-    // (type as unknown as Symbol)?.members?.forEach((value, key) => {
-    //   members.push(this.serializeSymbol.bind(this)(value, node, name));
-    // });
-
-    const documentation = this.serializeDocumentation.bind(this)(type.symbol);
-
-    let serializedType: DocEntry = {
-      signatures: [...constructors, calls].flat(),
-      documentation,
-      tempMembers,
-      name,
-      type:
-        type?.flags === TypeFlags.Union
-          ? 'or'
-          : type?.flags === TypeFlags.Intersection
-          ? 'and'
-          : undefined,
-      types: (type as any).types?.map((x: Type) =>
-        this.serializeType(x, node, name)
-      ),
-    };
-
-    console.log('type:', serializedType);
-    // console.log('type2:', members);
-    // console.log('type3:', serializedType);
-
-    serializedType = this.cleanUp(serializedType);
-
-    console.log('type2:', serializedType);
-
-    return serializedType;
+  getTypedSymbol(symbol?: Symbol | Type | Signature) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    if (symbol.getName && typeof symbol.getName === 'function') {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      // console.log('symbol', symbol.getName(), symbol.name);
+      return { symbol: symbol as Symbol, type: 'Symbol' };
+    } else {
+      // console.log('type', symbol);
+      return { symbol: symbol as Type, type: 'Type' };
+    }
+    // console.log('undefined', symbol);
+    return undefined;
   }
 
-  /** Serialize a symbol into a json object */
-  serializeSymbol(symbol?: Symbol, node?: Node, parentName?: string): DocEntry {
-    const classDeclaration = node as ClassDeclaration;
+  getFlags(symbol?: Symbol | Type) {
+    const typedSymbol = this.getTypedSymbol(symbol);
+    if (typedSymbol?.type === 'Symbol') {
+      return SymbolFlags[typedSymbol.symbol.getFlags()];
+    } else if (typedSymbol?.type === 'Type') {
+      return TypeFlags[typedSymbol.symbol.getFlags()];
+    }
+    return undefined;
+  }
 
-    let name = symbol?.getName();
-    if (name === parentName) return undefined;
+  getName(symbol?: Symbol | Type) {
+    const typedSymbol = this.getTypedSymbol(symbol);
+    // console.log('typedSymbol getName', typedSymbol);
+    let name = undefined;
+    if (typedSymbol?.type === 'Symbol') {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      name = symbol?.name;
+    } else if (typedSymbol?.type === 'Type') {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      name =
+        (symbol as unknown as { intrinsicName: string })?.intrinsicName ||
+        this.checker?.typeToString(symbol as Type);
+    }
+    return name;
+  }
 
-    const _extends = classDeclaration?.heritageClauses?.map((clause) => {
-      return clause.types.map((type) => {
-        // return this.checker?.getTypeAtLocation(type.expression)?.symbol?.name;
-        return this.serializeSymbol.bind(this)(
-          this.checker?.getSymbolAtLocation(type.expression),
-          type.expression,
-          name
-        );
-      });
-    });
-    const members: Array<DocEntry> = [];
-    symbol?.members?.forEach((value, key) => {
-      members.push(this.serializeSymbol.bind(this)(value, node, name));
-    });
-    let serializedType: DocEntry = undefined;
+  getSignatures(symbol?: Symbol | Type, node?: Node, isConstructor?: boolean) {
+    // console.log('getSignatures', symbol, node, isConstructor);
+
+    if (
+      isConstructor &&
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      symbol?.getConstructSignatures &&
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      typeof symbol?.getConstructSignatures === 'function'
+    )
+      return (
+        symbol
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          ?.getConstructSignatures()
+          ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node))
+      );
+    if (
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      symbol?.getCallSignatures &&
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      typeof symbol?.getCallSignatures === 'function'
+    )
+      return (
+        symbol
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
+          ?.getCallSignatures()
+          ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node))
+      );
+    return [];
+  }
+
+  getTempMembers(symbol?: Symbol | Type) {
+    const tempMembers: { key: string; value: Symbol }[] = [];
+    (symbol as unknown as Symbol)?.members?.forEach((symbol, key) =>
+      tempMembers.push({ key: key.toString(), value: symbol })
+    );
+    return tempMembers;
+  }
+
+  getType(symbol?: Symbol | Type, flags?: string) {
+    const typedSymbol = this.getTypedSymbol(symbol);
+    if (flags === 'Class' || flags === 'Interface') return flags;
+    if (typedSymbol?.type === 'Symbol') {
+      return symbol?.flags ? TypeFlags[symbol.flags] : undefined;
+    } else if (typedSymbol?.type === 'Type') {
+      return symbol?.flags === TypeFlags.Union
+        ? 'or'
+        : symbol?.flags === TypeFlags.Intersection
+        ? 'and'
+        : undefined;
+    }
+    return undefined;
+  }
+
+  getTypes(symbol?: Symbol | Type, node?: Node, name?: string) {
+    const typedSymbol = this.getTypedSymbol(symbol);
+    if (typedSymbol?.type === 'Symbol') {
+      const type: Type | undefined = symbol
+        ? this.checker?.getTypeOfSymbolAtLocation(
+            symbol as Symbol,
+            (symbol as Symbol).valueDeclaration!
+          )
+        : undefined;
+      if (
+        type &&
+        !this.baseTypes.includes(
+          (type as unknown as { intrinsicName: string }).intrinsicName
+        )
+      ) {
+        let serializedType: TempDocEntry;
+        if (
+          serializedType &&
+          typeof serializedType === 'string' &&
+          serializedType == 'error'
+        )
+          serializedType = undefined;
+        return serializedType
+          ? [this.serializeSymbol.bind(this)(type, node, name)]
+          : undefined;
+      }
+    } else if (typedSymbol?.type === 'Type') {
+      return (symbol as any).types?.map((x: Type) =>
+        this.serializeSymbol(x, node, name)
+      );
+    }
+    return undefined;
+  }
+
+  refactorName(symbol?: Symbol | Type, node?: Node, name?: string) {
     const type: Type | undefined = symbol
       ? this.checker?.getTypeOfSymbolAtLocation(
-          symbol,
-          symbol.valueDeclaration!
+          symbol as Symbol,
+          (symbol as Symbol).valueDeclaration!
         )
       : undefined;
     if (
@@ -348,7 +511,6 @@ class Doc {
         (type as unknown as { intrinsicName: string }).intrinsicName
       )
     ) {
-      serializedType = this.serializeType.bind(this)(type, node, name);
       let typeString = type ? this.checker?.typeToString(type) : undefined;
       if (typeString === 'any' && node) {
         if (isClassDeclaration(node)) typeString = 'class';
@@ -361,42 +523,93 @@ class Doc {
         typeString = 'class';
       }
     }
+    return name;
+  }
 
-    if (
-      serializedType &&
-      typeof serializedType === 'string' &&
-      serializedType == 'error'
-    )
-      serializedType = undefined;
+  /** Serialize a symbol into a json object */
+  serializeSymbol(
+    symbol?: Symbol | Type,
+    node?: Node,
+    parentName?: string
+  ): TempDocEntry {
+    const classDeclaration = node as ClassDeclaration;
+    const flags = this.getFlags(symbol);
+    let name: string | undefined = this.getName(symbol);
+
+    if ((name && this.baseTypes.includes(name)) || name === 'error')
+      return name;
+
+    // console.log('name', name, parentName);
+
+    if (name === parentName) return undefined;
+
+    const _extends = classDeclaration?.heritageClauses?.map((clause) => {
+      return clause.types.map((type) => {
+        // return this.checker?.getTypeAtLocation(type.expression)?.symbol?.name;
+        return this.serializeSymbol.bind(this)(
+          this.checker?.getSymbolAtLocation(type.expression),
+          type.expression,
+          name
+        );
+      });
+    });
+
+    // console.log('extends', _extends);
+
+    const constructors = this.getSignatures.bind(this)(symbol, node, true);
+
+    const calls = this.getSignatures.bind(this)(symbol, node);
+
+    // const tempMembers: { key: string; value: Symbol }[] | undefined =
+    //   this.getTempMembers(symbol);
+
+    name = this.refactorName(symbol, node, name);
+
+    const members: TempDocEntry[] = [];
+    (symbol as unknown as Symbol)?.members?.forEach((value, key) => {
+      members.push(this.serializeSymbol.bind(this)(value, node, name));
+    });
 
     const documentation = this.serializeDocumentation.bind(this)(symbol);
-    const entry: DocEntry = {
+    const entry: TempDocEntry = {
       //   modifiers:
       //     node && canHaveModifiers(node)
       //       ? (getModifiers(node) as any)
       //       : undefined,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      id: symbol?.id,
       name,
-      type: type?.flags === TypeFlags.Union ? TypeFlags[type.flags] : undefined,
-      types: serializedType ? [serializedType] : undefined,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      escapedName: symbol?.escapedName,
+      flags,
+      signatures: [...constructors, ...calls].flat(),
+      type: this.getType(symbol, flags),
+      types: this.getTypes(symbol, node, name),
       documentation,
       members,
       extends: _extends?.flat(),
     };
 
-    console.log('symbol:', entry);
+    console.log('a symbol:', entry);
+    const cleaned = this.cleanUp(entry);
+    console.log('a cleaned symbol:', cleaned);
 
-    return this.cleanUp(entry);
+    return cleaned;
   }
 
   /** Serialize a class symbol information */
-  serializeComponent(symbol: Symbol, node?: Node) {
+  serializeComponent(symbol?: Symbol, node?: Node) {
     const details = this.serializeSymbol.bind(this)(symbol, node);
 
     // Get the construct signatures
-    const constructorType = this.checker?.getTypeOfSymbolAtLocation(
-      symbol,
-      symbol.valueDeclaration!
-    );
+    const constructorType = symbol
+      ? this.checker?.getTypeOfSymbolAtLocation(
+          symbol,
+          symbol.valueDeclaration!
+        )
+      : undefined;
 
     if (typeof details === 'string') return details;
 
@@ -415,15 +628,19 @@ class Doc {
     return this.cleanUp(details);
   }
 
-  serializeDocumentation(element?: Symbol | Signature) {
+  serializeDocumentation(element?: Symbol | Type | Signature) {
+    const type = this.getTypedSymbol(element)?.type;
+    if (type === 'Type') {
+      element = (element as Type).symbol;
+    }
     const text = displayPartsToString(
-      element?.getDocumentationComment(this.checker)
+      (element as Symbol)?.getDocumentationComment(this.checker)
     );
     const documentation = {
       text,
     };
 
-    const tags = element?.getJsDocTags();
+    const tags = (element as Symbol)?.getJsDocTags();
     if (tags)
       for (const tag of tags) {
         const name = tag.name === 'param' ? 'parameters' : tag.name;
@@ -438,10 +655,10 @@ class Doc {
               .map((p) => p.text.trim())
               .filter((p) => p && p !== '')
               .join(' ');
-            const doc: DocEntry = {
+            const doc: TempDocEntry = {
               name: parameterName,
               text: parameterText,
-            } as unknown as ODocEntry;
+            } as unknown as BaseTempDocEntry;
             if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
             if (!doc.text) documentation[name].push(parameterName);
             else documentation[name].push(doc);
@@ -458,7 +675,7 @@ class Doc {
       this.serializeSymbol.bind(this)(symbol, node)
     );
 
-    const returnType = this.serializeType.bind(this)(
+    const returnType = this.serializeSymbol.bind(this)(
       signature.getReturnType(),
       node,
       undefined
@@ -466,7 +683,7 @@ class Doc {
 
     const documentation = this.serializeDocumentation.bind(this)(signature);
 
-    const serializedSignature: DocEntry = {
+    const serializedSignature: TempDocEntry = {
       parameters,
       returnType,
       documentation,
@@ -490,4 +707,4 @@ class Doc {
   }
 }
 
-export { Doc, DocEntry };
+export { Doc, TempDocEntry as DocEntry };
