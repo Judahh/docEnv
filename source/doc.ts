@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable no-unused-vars */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
 
@@ -33,14 +31,13 @@ import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare obj
  *! improve documentation with typescript types
  **/
 
-import { type } from 'os';
 import {
   Node,
   Type,
   Symbol,
   ClassDeclaration,
   SyntaxKind,
-  Modifier,
+  // Modifier,
   TypeChecker,
   CompilerOptions,
   SymbolFlags,
@@ -62,8 +59,8 @@ import {
   isTypeAliasDeclaration,
   ModifierFlags,
   Signature,
-  SymbolDisplayPart,
-  SymbolTable,
+  // SymbolDisplayPart,
+  // SymbolTable,
 } from 'typescript';
 
 interface BaseDocEntry {
@@ -88,7 +85,7 @@ interface BaseDocEntry {
 type DocEntry = BaseDocEntry | string;
 
 interface BaseTempDocEntry {
-  tempMembers?: { key: string; value: Symbol }[];
+  // tempMembers?: { key: string; value: Symbol }[];
   modifiers?: TempDocEntry[];
   id?: string | number;
   name?: string;
@@ -109,16 +106,16 @@ interface BaseTempDocEntry {
 
 type TempDocEntry = BaseTempDocEntry | string | undefined;
 
-const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
-  return new Promise<T>((resolve, reject) => {
-    setTimeout(async () => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      const result: T = await toCall.bind(self)(...args);
-      resolve(result);
-    }, 0);
-  });
-};
+// const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
+//   return new Promise<T>((resolve, reject) => {
+//     setTimeout(async () => {
+//       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+//       // @ts-ignore
+//       const result: T = await toCall.bind(self)(...args);
+//       resolve(result);
+//     }, 0);
+//   });
+// };
 
 class Doc {
   protected baseTypes = [
@@ -169,11 +166,10 @@ class Doc {
       }
     }
 
-    let refactoredOutput = this.refactorMembers(output);
+    // return output;
+    const refactoredOutput = this.refactorObjects(output);
 
-    refactoredOutput = this.refactorObjects(refactoredOutput);
-
-    return refactoredOutput;
+    return refactoredOutput as TempDocEntry[];
   }
 
   getOptions(
@@ -216,43 +212,43 @@ class Doc {
     };
   }
 
-  refactorObjects(output: TempDocEntry[]): TempDocEntry[] {
-    return output;
-  }
+  refactorObjects(
+    current?: TempDocEntry | TempDocEntry[],
+    base?: TempDocEntry[]
+  ): TempDocEntry | TempDocEntry[] {
+    if (!base) base = Array.isArray(current) ? current : [current];
+    if (Array.isArray(current)) {
+      const newOutput = current?.map((entry) => {
+        if (typeof entry !== 'object') return entry;
 
-  refactorTempMembers(output: TempDocEntry[], node, name): TempDocEntry[] {
-    const members: Array<TempDocEntry> = [];
+        const newEntry: TempDocEntry = {};
+        for (const key in entry) {
+          if (Object.prototype.hasOwnProperty.call(entry, key)) {
+            const element = entry[key];
+            if (Array.isArray(element)) {
+              newEntry[key] = this.refactorObjects(element, current);
+            } else if (typeof element === 'object') {
+              const received = this.refactorObjects.bind(this)(
+                element,
+                current
+              );
+              newEntry[key] = Array.isArray(received)
+                ? received?.[0]
+                : received;
+            } else {
+              newEntry[key] = element;
+            }
+          }
+        }
+        return newEntry;
+      });
+      console.log('refactorObjects', current, newOutput);
 
-    (type as unknown as Symbol)?.members?.forEach((value, key) => {
-      members.push(this.serializeSymbol.bind(this)(value, node, name));
-    });
-    return output;
-  }
-
-  refactorMembers(output: TempDocEntry[]): TempDocEntry[] {
-    return output;
-    // return output.map((entry) => {
-    //   if (typeof entry === 'string') return entry;
-
-    //   const newEntry: TempDocEntry = {};
-    //   for (const key in entry) {
-    //     if (Object.prototype.hasOwnProperty.call(entry, key)) {
-    //       const element = entry[key];
-    //       if (key === 'tempMembers') {
-    //         newEntry.members = this.refactorTempMembers.bind(this)(
-    //           element,
-    //           node,
-    //           entry.name
-    //         );
-    //       } else if (typeof element === 'object') {
-    //         newEntry[key] = this.refactorMembers.bind(this)(element);
-    //       } else {
-    //         newEntry[key] = element;
-    //       }
-    //     }
-    //   }
-    //   return newEntry;
-    // });
+      return newOutput;
+    } else {
+      // Check if this output is duplicated
+    }
+    return current;
   }
 
   getComponentWithFileName(
@@ -339,10 +335,10 @@ class Doc {
       if (!doc?.types?.length) delete doc?.types;
       if (!doc?.type) delete doc?.type;
       if (!doc?.members?.length) delete doc?.members;
-      if (!doc?.tempMembers || doc?.tempMembers?.length === 0) {
-        doc.tempMembers = undefined;
-        delete doc?.tempMembers;
-      }
+      // if (!doc?.tempMembers || doc?.tempMembers?.length === 0) {
+      //   doc.tempMembers = undefined;
+      //   delete doc?.tempMembers;
+      // }
       if (!doc?.extends?.length) delete doc?.extends;
       if (
         !doc?.types ||
@@ -566,7 +562,7 @@ class Doc {
     name = this.refactorName(symbol, node, name);
 
     const members: TempDocEntry[] = [];
-    (symbol as unknown as Symbol)?.members?.forEach((value, key) => {
+    (symbol as unknown as Symbol)?.members?.forEach((value) => {
       members.push(this.serializeSymbol.bind(this)(value, node, name));
     });
 
@@ -592,9 +588,8 @@ class Doc {
       extends: _extends?.flat(),
     };
 
-    console.log('a symbol:', entry);
     const cleaned = this.cleanUp(entry);
-    console.log('a cleaned symbol:', cleaned);
+    // console.log('a cleaned symbol:', cleaned);
 
     return cleaned;
   }

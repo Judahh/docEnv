@@ -9,9 +9,9 @@ test('Test Simple File', async () => {
   const doc = new Doc();
   parsed = await doc.generateDocumentation({
     filenames: [
-      './test/sampleAPI/services/aService.ts',
+      // './test/sampleAPI/services/aService.ts',
       // './test/sampleAPI/models/cFilter.ts',
-      // './test/sample0.ts',
+      './test/sample0.ts',
     ],
   });
   console.log(
