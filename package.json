@@ -25,13 +25,14 @@
   "dependencies": {
     "comment-json": "latest",
     "lodash": "latest",
+    "mongoose": "latest",
     "typescript": "latest"
   },
   "devDependencies": {
     "@types/acorn": "latest",
     "@types/jest": "latest",
-    "@types/node": "latest",
     "@types/lodash": "latest",
+    "@types/node": "latest",
     "@typescript-eslint/eslint-plugin": "latest",
     "@typescript-eslint/parser": "latest",
     "eslint": "latest",

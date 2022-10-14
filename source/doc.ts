@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
+import { mongo } from 'mongoose';
 
 /**
  *! TODO:
@@ -65,6 +66,9 @@ import {
 
 interface BaseDocEntry {
   modifiers?: DocEntry[];
+  uid?: string;
+  link?: string;
+  linked?: string[];
   id?: string | number;
   name?: string;
   escapedName?: string;
@@ -87,6 +91,9 @@ type DocEntry = BaseDocEntry | string;
 interface BaseTempDocEntry {
   // tempMembers?: { key: string; value: Symbol }[];
   modifiers?: TempDocEntry[];
+  uid?: string;
+  link?: string;
+  linked?: string[];
   id?: string | number;
   name?: string;
   escapedName?: string;
@@ -116,6 +123,10 @@ type TempDocEntry = BaseTempDocEntry | string | undefined;
 //     }, 0);
 //   });
 // };
+
+function pushIfNotExists<T>(array: T[], item: T) {
+  if (!array.includes(item)) array.push(item);
+}
 
 class Doc {
   protected baseTypes = [
@@ -166,10 +177,9 @@ class Doc {
       }
     }
 
-    // return output;
-    const refactoredOutput = this.refactorObjects(output);
+    this.refactorObjects(output);
 
-    return refactoredOutput as TempDocEntry[];
+    return output;
   }
 
   getOptions(
@@ -212,43 +222,96 @@ class Doc {
     };
   }
 
+  linkObject(newObject?: TempDocEntry, parent?: TempDocEntry) {
+    const currentObject: BaseDocEntry = {
+      link: typeof newObject === 'string' ? newObject : newObject?.uid,
+    };
+    if (newObject) {
+      if (typeof newObject === 'string') newObject = { name: newObject };
+      newObject.linked = newObject.linked ? newObject.linked : [];
+      // console.log('newObject', newObject, parent);
+      if (parent) {
+        if (typeof parent === 'string') parent = { name: parent };
+        pushIfNotExists(newObject.linked, parent?.uid || parent?.name);
+      }
+    }
+    return currentObject;
+  }
+
+  refactorObject(
+    object: TempDocEntry,
+    base?: TempDocEntry[],
+    parent?: TempDocEntry,
+    notBase?: boolean
+  ): TempDocEntry {
+    if (object) {
+      if (notBase && parent) {
+        // find object in base
+        const found = base?.find((b) => {
+          if (typeof object === 'string') object = { name: object };
+          if (typeof b === 'string') b = { name: b };
+
+          return b?.name === object?.name && b?.id === object?.id;
+        });
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        if (found && found?.uid !== object?.uid) {
+          object = this.linkObject(found, parent);
+        } else if (parent) {
+          const newObject = JSON.parse(JSON.stringify(object));
+          newObject.internal = true;
+          object = this.linkObject(newObject, parent);
+          base?.push(newObject);
+        }
+      }
+    }
+    return object;
+  }
+
   refactorObjects(
     current?: TempDocEntry | TempDocEntry[],
-    base?: TempDocEntry[]
-  ): TempDocEntry | TempDocEntry[] {
+    base?: TempDocEntry[],
+    parent?: TempDocEntry,
+    notBase?: boolean
+  ): void {
     if (!base) base = Array.isArray(current) ? current : [current];
     if (Array.isArray(current)) {
-      const newOutput = current?.map((entry) => {
-        if (typeof entry !== 'object') return entry;
+      for (let index = 0; index < current.length; index++) {
+        if (typeof current[index] === 'string')
+          current[index] = { name: current[index] } as BaseTempDocEntry;
 
-        const newEntry: TempDocEntry = {};
-        for (const key in entry) {
-          if (Object.prototype.hasOwnProperty.call(entry, key)) {
-            const element = entry[key];
-            if (Array.isArray(element)) {
-              newEntry[key] = this.refactorObjects(element, current);
-            } else if (typeof element === 'object') {
-              const received = this.refactorObjects.bind(this)(
-                element,
-                current
+        for (const key in current[index] as BaseTempDocEntry) {
+          if (
+            Object.prototype.hasOwnProperty.call(current[index], key) &&
+            key !== 'linked' &&
+            current?.[index]?.[key]
+          ) {
+            if (Array.isArray(current[index]?.[key])) {
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-ignore
+              current[index][key] = current[index]?.[key]?.map((o) =>
+                this.refactorObject(o, base, current?.[index], true)
               );
-              newEntry[key] = Array.isArray(received)
-                ? received?.[0]
-                : received;
-            } else {
-              newEntry[key] = element;
+            } else if (typeof current[index]?.[key] === 'object') {
+              current[index] = this.refactorObject(
+                current[index],
+                base,
+                parent,
+                notBase
+              );
             }
           }
         }
-        return newEntry;
-      });
-      console.log('refactorObjects', current, newOutput);
-
-      return newOutput;
+      }
     } else {
-      // Check if this output is duplicated
+      current = this.refactorObject(
+        current,
+        base as TempDocEntry[],
+        parent,
+        notBase
+      );
     }
-    return current;
+    // console.log('refactorObjects', JSON.stringify(current, null, 5));
   }
 
   getComponentWithFileName(
@@ -575,6 +638,7 @@ class Doc {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       id: symbol?.id,
+      uid: new mongo.ObjectId().toString(),
       name,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
@@ -608,7 +672,8 @@ class Doc {
 
     if (typeof details === 'string') return details;
 
-    if (details)
+    if (details) {
+      details.uid = new mongo.ObjectId().toString();
       details.signatures = [
         ...(constructorType
           ?.getConstructSignatures()
@@ -619,6 +684,7 @@ class Doc {
           ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node)) ||
           []),
       ].flat();
+    }
 
     return this.cleanUp(details);
   }
@@ -679,6 +745,7 @@ class Doc {
     const documentation = this.serializeDocumentation.bind(this)(signature);
 
     const serializedSignature: TempDocEntry = {
+      uid: new mongo.ObjectId().toString(),
       parameters,
       returnType,
       documentation,
