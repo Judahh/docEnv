@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
+// import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
 import { mongo } from 'mongoose';
 
 /**
@@ -35,31 +35,32 @@ import { mongo } from 'mongoose';
 import {
   Node,
   Type,
-  Symbol,
-  ClassDeclaration,
+  // Symbol,
+  // ClassDeclaration,
   SyntaxKind,
   // Modifier,
   TypeChecker,
   CompilerOptions,
-  SymbolFlags,
-  TypeFlags,
+  // SymbolFlags,
+  // TypeFlags,
   createCompilerHost,
   createProgram,
   forEachChild,
   findConfigFile,
   readConfigFile,
   parseJsonConfigFileContent,
-  isExportDeclaration,
+  // isExportDeclaration,
   sys,
   isClassDeclaration,
   Declaration,
-  displayPartsToString,
+  // displayPartsToString,
   getCombinedModifierFlags,
-  isFunctionDeclaration,
-  isInterfaceDeclaration,
-  isTypeAliasDeclaration,
+  // isFunctionDeclaration,
+  // isInterfaceDeclaration,
+  // isTypeAliasDeclaration,
   ModifierFlags,
-  Signature,
+  // Signature,
+  // SignatureKind,
   // SymbolDisplayPart,
   // SymbolTable,
 } from 'typescript';
@@ -67,8 +68,8 @@ import {
 interface BaseDocEntry {
   modifiers?: DocEntry[];
   uid?: string;
-  link?: string;
-  linked?: string[];
+  link?: DocEntry;
+  linked?: DocEntry[];
   id?: string | number;
   name?: string;
   escapedName?: string;
@@ -77,6 +78,7 @@ interface BaseDocEntry {
   documentation?: DocEntry;
   flags?: string;
   type?: DocEntry;
+  kind?: DocEntry;
   types?: DocEntry[];
   signatures?: DocEntry[];
   implements?: DocEntry[];
@@ -92,8 +94,8 @@ interface BaseTempDocEntry {
   // tempMembers?: { key: string; value: Symbol }[];
   modifiers?: TempDocEntry[];
   uid?: string;
-  link?: string;
-  linked?: string[];
+  link?: TempDocEntry;
+  linked?: TempDocEntry[];
   id?: string | number;
   name?: string;
   escapedName?: string;
@@ -102,6 +104,7 @@ interface BaseTempDocEntry {
   documentation?: TempDocEntry;
   flags?: string;
   type?: TempDocEntry;
+  kind?: TempDocEntry;
   types?: TempDocEntry[];
   signatures?: TempDocEntry[];
   implements?: TempDocEntry[];
@@ -124,9 +127,9 @@ type TempDocEntry = BaseTempDocEntry | string | undefined;
 //   });
 // };
 
-function pushIfNotExists<T>(array: T[], item: T) {
-  if (!array.includes(item)) array.push(item);
-}
+// function pushIfNotExists<T>(array: T[], item: T) {
+//   if (!array.includes(item)) array.push(item);
+// }
 
 class Doc {
   protected baseTypes = [
@@ -177,8 +180,6 @@ class Doc {
       }
     }
 
-    this.refactorObjects(output);
-
     return output;
   }
 
@@ -222,168 +223,41 @@ class Doc {
     };
   }
 
-  linkObject(newObject?: TempDocEntry, parent?: TempDocEntry) {
-    const currentObject: BaseDocEntry = {
-      link: typeof newObject === 'string' ? newObject : newObject?.uid,
-    };
-    if (newObject) {
-      if (typeof newObject === 'string') newObject = { name: newObject };
-      newObject.linked = newObject.linked ? newObject.linked : [];
-      // console.log('newObject', newObject, parent);
-      if (parent) {
-        if (typeof parent === 'string') parent = { name: parent };
-        pushIfNotExists(newObject.linked, parent?.uid || parent?.name);
-      }
-    }
-    return currentObject;
-  }
-
-  refactorObject(
-    object: TempDocEntry,
-    base?: TempDocEntry[],
-    parent?: TempDocEntry,
-    notBase?: boolean
-  ): TempDocEntry {
-    if (object) {
-      if (notBase && parent) {
-        // find object in base
-        const found = base?.find((b) => {
-          if (typeof object === 'string') object = { name: object };
-          if (typeof b === 'string') b = { name: b };
-
-          return b?.name === object?.name && b?.id === object?.id;
-        });
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        if (found && found?.uid !== object?.uid) {
-          object = this.linkObject(found, parent);
-        } else if (parent) {
-          const newObject = JSON.parse(JSON.stringify(object));
-          newObject.internal = true;
-          object = this.linkObject(newObject, parent);
-          base?.push(newObject);
-        }
-      }
-    }
-    return object;
-  }
-
-  refactorObjects(
-    current?: TempDocEntry | TempDocEntry[],
-    base?: TempDocEntry[],
-    parent?: TempDocEntry,
-    notBase?: boolean
-  ): void {
-    if (!base) base = Array.isArray(current) ? current : [current];
-    if (Array.isArray(current)) {
-      for (let index = 0; index < current.length; index++) {
-        if (typeof current[index] === 'string')
-          current[index] = { name: current[index] } as BaseTempDocEntry;
-
-        for (const key in current[index] as BaseTempDocEntry) {
-          if (
-            Object.prototype.hasOwnProperty.call(current[index], key) &&
-            key !== 'linked' &&
-            current?.[index]?.[key]
-          ) {
-            if (Array.isArray(current[index]?.[key])) {
-              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-              // @ts-ignore
-              current[index][key] = current[index]?.[key]?.map((o) =>
-                this.refactorObject(o, base, current?.[index], true)
-              );
-            } else if (typeof current[index]?.[key] === 'object') {
-              current[index] = this.refactorObject(
-                current[index],
-                base,
-                parent,
-                notBase
-              );
-            }
-          }
-        }
-      }
-    } else {
-      current = this.refactorObject(
-        current,
-        base as TempDocEntry[],
-        parent,
-        notBase
-      );
-    }
-    // console.log('refactorObjects', JSON.stringify(current, null, 5));
-  }
-
-  getComponentWithFileName(
-    symbol?: Symbol,
-    node?: Node,
-    rootDir?: string
-  ): TempDocEntry {
-    const fileName = node?.getSourceFile()?.fileName;
-    let component = this.serializeComponent.bind(this)(symbol, node);
-    if (
-      (rootDir == undefined || rootDir == '.') &&
-      (fileName?.[0] == '/' || fileName == undefined)
-    )
-      return component;
-    if (component && typeof component !== 'string') {
-      component.fileName = fileName;
-    } else {
-      component = {
-        fileName,
-        name: component,
-      };
-    }
-    return component;
+  isNodeExported(node: Node): boolean {
+    return (
+      (getCombinedModifierFlags(node as Declaration) & ModifierFlags.Export) !==
+        0 ||
+      (!!node?.parent && node?.parent?.kind === SyntaxKind.SourceFile)
+    );
   }
 
   /** visit nodes finding exported classes */
   visit(node: Node, output?: Array<TempDocEntry>, rootDir?: string): void {
+    // console.log('visit', SyntaxKind[node.kind]);
+    if (isClassDeclaration(node)) {
+      console.log('class', node);
+    }
     // Only consider exported nodes
     if (!this.isNodeExported(node)) {
       return;
     }
 
-    const symbol = (node as { name?: any })?.name
-      ? this.checker?.getSymbolAtLocation((node as { name?: any }).name)
+    console.log(
+      'visit a',
+      SyntaxKind[node.kind],
+      (node as { name?: any }).name
+    );
+
+    const type = (node as { name?: any })?.name
+      ? this.serializeType(
+          this.checker?.getTypeAtLocation((node as { name?: any }).name),
+          node
+        )
       : undefined;
-
-    if (symbol) {
-      output?.push(
-        this.getComponentWithFileName.bind(this)(symbol, node, rootDir)
-      );
-    } else {
-      // console.log('node B', SyntaxKind[node.kind]);
-      if (isExportDeclaration(node)) {
-        const symbols = this.checker?.getSymbolsInScope(
-          node,
-          SymbolFlags.BlockScopedVariable
-        );
-        for (const symbol of symbols || []) {
-          const name = symbol.getName();
-          const type = symbol
-            ? this.checker?.typeToString(
-                this.checker?.getTypeOfSymbolAtLocation(
-                  symbol,
-                  symbol.valueDeclaration!
-                )
-              )
-            : undefined;
-
-          if (
-            (name === 'name' && type === 'void') ||
-            (name === 'expect' && type === 'Expect')
-          ) {
-            continue;
-          }
-          if (symbol)
-            output?.push(
-              this.getComponentWithFileName.bind(this)(symbol, node, rootDir)
-            );
-        }
-      }
-      forEachChild(node, this.visit.bind(this));
-    }
+    const newNode = this.serializeNode(node);
+    console.log('newNode', newNode);
+    output?.push({ node: newNode, type } as TempDocEntry);
+    forEachChild(node, (node) => this.visit.bind(this)(node, output, rootDir));
   }
 
   cleanUp(doc: TempDocEntry) {
@@ -419,217 +293,55 @@ class Doc {
     return doc;
   }
 
-  getTypedSymbol(symbol?: Symbol | Type | Signature) {
+  serializeNode(node?: Node) {
+    if (node == undefined) return undefined;
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    if (symbol.getName && typeof symbol.getName === 'function') {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      // console.log('symbol', symbol.getName(), symbol.name);
-      return { symbol: symbol as Symbol, type: 'Symbol' };
-    } else {
-      // console.log('type', symbol);
-      return { symbol: symbol as Type, type: 'Type' };
-    }
-    // console.log('undefined', symbol);
-    return undefined;
-  }
-
-  getFlags(symbol?: Symbol | Type) {
-    const typedSymbol = this.getTypedSymbol(symbol);
-    if (typedSymbol?.type === 'Symbol') {
-      return SymbolFlags[typedSymbol.symbol.getFlags()];
-    } else if (typedSymbol?.type === 'Type') {
-      return TypeFlags[typedSymbol.symbol.getFlags()];
-    }
-    return undefined;
-  }
-
-  getName(symbol?: Symbol | Type) {
-    const typedSymbol = this.getTypedSymbol(symbol);
-    // console.log('typedSymbol getName', typedSymbol);
-    let name = undefined;
-    if (typedSymbol?.type === 'Symbol') {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      name = symbol?.name;
-    } else if (typedSymbol?.type === 'Type') {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      name =
-        (symbol as unknown as { intrinsicName: string })?.intrinsicName ||
-        this.checker?.typeToString(symbol as Type);
-    }
-    return name;
-  }
-
-  getSignatures(symbol?: Symbol | Type, node?: Node, isConstructor?: boolean) {
-    // console.log('getSignatures', symbol, node, isConstructor);
-
-    if (
-      isConstructor &&
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      symbol?.getConstructSignatures &&
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      typeof symbol?.getConstructSignatures === 'function'
-    )
-      return (
-        symbol
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          ?.getConstructSignatures()
-          ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node))
-      );
-    if (
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      symbol?.getCallSignatures &&
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      typeof symbol?.getCallSignatures === 'function'
-    )
-      return (
-        symbol
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          ?.getCallSignatures()
-          ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node))
-      );
-    return [];
-  }
-
-  getTempMembers(symbol?: Symbol | Type) {
-    const tempMembers: { key: string; value: Symbol }[] = [];
-    (symbol as unknown as Symbol)?.members?.forEach((symbol, key) =>
-      tempMembers.push({ key: key.toString(), value: symbol })
-    );
-    return tempMembers;
-  }
-
-  getType(symbol?: Symbol | Type, flags?: string) {
-    const typedSymbol = this.getTypedSymbol(symbol);
-    if (flags === 'Class' || flags === 'Interface') return flags;
-    if (typedSymbol?.type === 'Symbol') {
-      return symbol?.flags ? TypeFlags[symbol.flags] : undefined;
-    } else if (typedSymbol?.type === 'Type') {
-      return symbol?.flags === TypeFlags.Union
-        ? 'or'
-        : symbol?.flags === TypeFlags.Intersection
-        ? 'and'
-        : undefined;
-    }
-    return undefined;
-  }
-
-  getTypes(symbol?: Symbol | Type, node?: Node, name?: string) {
-    const typedSymbol = this.getTypedSymbol(symbol);
-    if (typedSymbol?.type === 'Symbol') {
-      const type: Type | undefined = symbol
-        ? this.checker?.getTypeOfSymbolAtLocation(
-            symbol as Symbol,
-            (symbol as Symbol).valueDeclaration!
-          )
-        : undefined;
-      if (
-        type &&
-        !this.baseTypes.includes(
-          (type as unknown as { intrinsicName: string }).intrinsicName
-        )
-      ) {
-        let serializedType: TempDocEntry;
-        if (
-          serializedType &&
-          typeof serializedType === 'string' &&
-          serializedType == 'error'
-        )
-          serializedType = undefined;
-        return serializedType
-          ? [this.serializeSymbol.bind(this)(type, node, name)]
-          : undefined;
-      }
-    } else if (typedSymbol?.type === 'Type') {
-      return (symbol as any).types?.map((x: Type) =>
-        this.serializeSymbol(x, node, name)
-      );
-    }
-    return undefined;
-  }
-
-  refactorName(symbol?: Symbol | Type, node?: Node, name?: string) {
-    const type: Type | undefined = symbol
-      ? this.checker?.getTypeOfSymbolAtLocation(
-          symbol as Symbol,
-          (symbol as Symbol).valueDeclaration!
+    const type = node?.type
+      ? this.serializeType(
+          this.checker?.getTypeAtLocation((node as { name?: any }).name),
+          node
         )
       : undefined;
-    if (
-      type &&
-      !this.baseTypes.includes(
-        (type as unknown as { intrinsicName: string }).intrinsicName
-      )
-    ) {
-      let typeString = type ? this.checker?.typeToString(type) : undefined;
-      if (typeString === 'any' && node) {
-        if (isClassDeclaration(node)) typeString = 'class';
-        else if (isInterfaceDeclaration(node) || isTypeAliasDeclaration(node))
-          typeString = 'interface';
-        else if (isFunctionDeclaration(node)) typeString = 'function';
-      }
-      if (name === 'default' && typeString?.includes('typeof ')) {
-        name = typeString.replace('typeof ', '');
-        typeString = 'class';
-      }
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const name: string | undefined = node?.name?.escapedText?.toString();
+    console.log(
+      'serializeNode a',
+      SyntaxKind[node.kind],
+      (node as { name?: any }).name
+    );
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    let id;
+    try {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      id = this.checker?.getSymbolAtLocation?.(node)?.id;
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      id = node?.id;
     }
-    return name;
-  }
 
-  /** Serialize a symbol into a json object */
-  serializeSymbol(
-    symbol?: Symbol | Type,
-    node?: Node,
-    parentName?: string
-  ): TempDocEntry {
-    const classDeclaration = node as ClassDeclaration;
-    const flags = this.getFlags(symbol);
-    let name: string | undefined = this.getName(symbol);
-
-    if ((name && this.baseTypes.includes(name)) || name === 'error')
-      return name;
-
-    // console.log('name', name, parentName);
-
-    if (name === parentName) return undefined;
-
-    const _extends = classDeclaration?.heritageClauses?.map((clause) => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const _extends = node?.heritageClauses?.map((clause) => {
       return clause.types.map((type) => {
         // return this.checker?.getTypeAtLocation(type.expression)?.symbol?.name;
-        return this.serializeSymbol.bind(this)(
-          this.checker?.getSymbolAtLocation(type.expression),
-          type.expression,
-          name
-        );
+        return this.serializeNode.bind(this)(type);
       });
     });
 
-    // console.log('extends', _extends);
-
-    const constructors = this.getSignatures.bind(this)(symbol, node, true);
-
-    const calls = this.getSignatures.bind(this)(symbol, node);
-
-    // const tempMembers: { key: string; value: Symbol }[] | undefined =
-    //   this.getTempMembers(symbol);
-
-    name = this.refactorName(symbol, node, name);
-
     const members: TempDocEntry[] = [];
-    (symbol as unknown as Symbol)?.members?.forEach((value) => {
-      members.push(this.serializeSymbol.bind(this)(value, node, name));
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    node?.members?.forEach((value) => {
+      members.push(this.serializeNode.bind(this)(value));
     });
 
-    const documentation = this.serializeDocumentation.bind(this)(symbol);
+    // const documentation = this.serializeDocumentation.bind(this)(symbol);
     const entry: TempDocEntry = {
       //   modifiers:
       //     node && canHaveModifiers(node)
@@ -637,135 +349,27 @@ class Doc {
       //       : undefined,
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      id: symbol?.id,
+      id,
       uid: new mongo.ObjectId().toString(),
       name,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      escapedName: symbol?.escapedName,
-      flags,
-      signatures: [...constructors, ...calls].flat(),
-      type: this.getType(symbol, flags),
-      types: this.getTypes(symbol, node, name),
-      documentation,
+      type,
+      kind: SyntaxKind[node.kind],
+      // documentation,
       members,
       extends: _extends?.flat(),
     };
 
     const cleaned = this.cleanUp(entry);
-    // console.log('a cleaned symbol:', cleaned);
+    console.log('a cleaned node:', cleaned);
 
     return cleaned;
   }
 
-  /** Serialize a class symbol information */
-  serializeComponent(symbol?: Symbol, node?: Node) {
-    const details = this.serializeSymbol.bind(this)(symbol, node);
-
-    // Get the construct signatures
-    const constructorType = symbol
-      ? this.checker?.getTypeOfSymbolAtLocation(
-          symbol,
-          symbol.valueDeclaration!
-        )
-      : undefined;
-
-    if (typeof details === 'string') return details;
-
-    if (details) {
-      details.uid = new mongo.ObjectId().toString();
-      details.signatures = [
-        ...(constructorType
-          ?.getConstructSignatures()
-          ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node)) ||
-          []),
-        ...(constructorType
-          ?.getCallSignatures()
-          ?.map((symbol) => this.serializeSignature.bind(this)(symbol, node)) ||
-          []),
-      ].flat();
-    }
-
-    return this.cleanUp(details);
-  }
-
-  serializeDocumentation(element?: Symbol | Type | Signature) {
-    const type = this.getTypedSymbol(element)?.type;
-    if (type === 'Type') {
-      element = (element as Type).symbol;
-    }
-    const text = displayPartsToString(
-      (element as Symbol)?.getDocumentationComment(this.checker)
-    );
-    const documentation = {
-      text,
-    };
-
-    const tags = (element as Symbol)?.getJsDocTags();
-    if (tags)
-      for (const tag of tags) {
-        const name = tag.name === 'param' ? 'parameters' : tag.name;
-        if (documentation[name] === undefined) documentation[name] = [];
-        if (tag.text)
-          if (name === 'parameters') {
-            const parameterName = tag.text.filter(
-              (p) => p.kind === 'parameterName'
-            )[0].text;
-            const parameterText = tag.text
-              .filter((p) => p.kind === 'text')
-              .map((p) => p.text.trim())
-              .filter((p) => p && p !== '')
-              .join(' ');
-            const doc: TempDocEntry = {
-              name: parameterName,
-              text: parameterText,
-            } as unknown as BaseTempDocEntry;
-            if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
-            if (!doc.text) documentation[name].push(parameterName);
-            else documentation[name].push(doc);
-          } else documentation[name].push(...tag.text.map((x) => x.text));
-        else documentation[name].push(true);
-      }
-    if (!tags || (!tags.length && !text)) return undefined;
-    return documentation;
-  }
-
-  /** Serialize a signature (call or construct) */
-  serializeSignature(signature: Signature, node?: Node) {
-    const parameters = signature.parameters.map((symbol) =>
-      this.serializeSymbol.bind(this)(symbol, node)
-    );
-
-    const returnType = this.serializeSymbol.bind(this)(
-      signature.getReturnType(),
-      node,
-      undefined
-    );
-
-    const documentation = this.serializeDocumentation.bind(this)(signature);
-
-    const serializedSignature: TempDocEntry = {
-      uid: new mongo.ObjectId().toString(),
-      parameters,
-      returnType,
-      documentation,
-    };
-
-    if (!serializedSignature?.parameters?.length)
-      delete serializedSignature?.parameters;
-
-    if (!serializedSignature?.documentation)
-      delete serializedSignature?.documentation;
-
-    return serializedSignature;
-  }
-  /** True if this is visible outside this file, false otherwise */
-  isNodeExported(node: Node): boolean {
-    return (
-      (getCombinedModifierFlags(node as Declaration) & ModifierFlags.Export) !==
-        0 ||
-      (!!node?.parent && node?.parent?.kind === SyntaxKind.SourceFile)
-    );
+  serializeType(type?: Type, node?: Node) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    console.log('serializeType', this.checker.typeToString(type as Type, node));
+    return this?.checker?.typeToString(type as Type, node);
   }
 }
 
