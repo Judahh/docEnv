@@ -3,38 +3,9 @@
 // import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
 import { mongo } from 'mongoose';
 
-/**
- *! TODO:
- *! After complete, compare objects if already exists in the structure,
- *! if it does, make a link to the existing object
- *! if it doesn't, add it to the structure and make a link to it
- *! then replace all tempMembers with real members using links
- *?TEMP MEMBERS:
- * const tempMembers: SymbolTable | undefined = (type as unknown as Symbol)?.members;
- *?TEMP MEMBERS:
- * const members: Array<DocEntry> = [];
- * if ((name && this.baseTypes.includes(name)) || name === 'error')
- *   return name;
- * (type as unknown as Symbol)?.members?.forEach((value, key) => {
- *   members.push(this.serializeSymbol.bind(this)(value, node, name));
- * });
- **/
-
-/**
- *! TODO:
- *! Add special variables result
- *? Special variables: are variables that receives one or more
- *? environment variables
- **/
-
-/**
- *! TODO:
- *! improve documentation with typescript types
- **/
-
 import {
   Node,
-  Type,
+  // Type,
   // Symbol,
   // ClassDeclaration,
   SyntaxKind,
@@ -53,7 +24,7 @@ import {
   sys,
   isClassDeclaration,
   Declaration,
-  // displayPartsToString,
+  displayPartsToString,
   getCombinedModifierFlags,
   // isFunctionDeclaration,
   // isInterfaceDeclaration,
@@ -74,10 +45,16 @@ interface BaseDocEntry {
   name?: string;
   escapedName?: string;
   text?: string;
+  code?: string;
+  body?: DocEntry;
+  expression?: DocEntry;
+  arguments?: DocEntry[];
+  statements?: DocEntry[];
   fileName?: string;
   documentation?: DocEntry;
   flags?: string;
   type?: DocEntry;
+  typeName?: string;
   kind?: DocEntry;
   types?: DocEntry[];
   signatures?: DocEntry[];
@@ -88,33 +65,7 @@ interface BaseDocEntry {
   returnType?: DocEntry;
 }
 
-type DocEntry = BaseDocEntry | string;
-
-interface BaseTempDocEntry {
-  // tempMembers?: { key: string; value: Symbol }[];
-  modifiers?: TempDocEntry[];
-  uid?: string;
-  link?: TempDocEntry;
-  linked?: TempDocEntry[];
-  id?: string | number;
-  name?: string;
-  escapedName?: string;
-  text?: string;
-  fileName?: string;
-  documentation?: TempDocEntry;
-  flags?: string;
-  type?: TempDocEntry;
-  kind?: TempDocEntry;
-  types?: TempDocEntry[];
-  signatures?: TempDocEntry[];
-  implements?: TempDocEntry[];
-  extends?: TempDocEntry[];
-  parameters?: TempDocEntry[];
-  members?: TempDocEntry[];
-  returnType?: TempDocEntry;
-}
-
-type TempDocEntry = BaseTempDocEntry | string | undefined;
+type DocEntry = BaseDocEntry | string | undefined;
 
 // const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
 //   return new Promise<T>((resolve, reject) => {
@@ -157,7 +108,7 @@ class Doc {
       filenames?: string[];
     },
     currentDir?: string
-  ): Promise<TempDocEntry[]> {
+  ): Promise<DocEntry[]> {
     const { options, fileNames, rootDir } = this.getOptions(
       override,
       currentDir
@@ -168,7 +119,7 @@ class Doc {
 
     // Get the checker, we will use it to find more about classes
     this.checker = program.getTypeChecker();
-    const output: TempDocEntry[] = [];
+    const output: DocEntry[] = [];
 
     const visit = (node: Node) => this.visit(node, output, rootDir);
 
@@ -232,7 +183,7 @@ class Doc {
   }
 
   /** visit nodes finding exported classes */
-  visit(node: Node, output?: Array<TempDocEntry>, rootDir?: string): void {
+  visit(node: Node, output?: Array<DocEntry>, rootDir?: string): void {
     // console.log('visit', SyntaxKind[node.kind]);
     if (isClassDeclaration(node)) {
       console.log('class', node);
@@ -248,19 +199,20 @@ class Doc {
       (node as { name?: any }).name
     );
 
-    const type = (node as { name?: any })?.name
-      ? this.serializeType(
-          this.checker?.getTypeAtLocation((node as { name?: any }).name),
-          node
-        )
-      : undefined;
+    // const type = (node as { name?: any })?.name
+    //   ? this?.checker?.typeToString(
+    //       this.checker?.getTypeAtLocation((node as { name?: any }).name),
+    //       node
+    //     )
+    //   : undefined;
     const newNode = this.serializeNode(node);
-    console.log('newNode', newNode);
-    output?.push({ node: newNode, type } as TempDocEntry);
+    // console.log('newNode', newNode);
+    // output?.push({ node: newNode, type } as DocEntry);
+    output?.push(newNode);
     forEachChild(node, (node) => this.visit.bind(this)(node, output, rootDir));
   }
 
-  cleanUp(doc: TempDocEntry) {
+  cleanUp(doc: DocEntry) {
     if (typeof doc === 'string') return doc;
     if (doc) {
       if (!doc?.documentation) delete doc.documentation;
@@ -272,10 +224,6 @@ class Doc {
       if (!doc?.types?.length) delete doc?.types;
       if (!doc?.type) delete doc?.type;
       if (!doc?.members?.length) delete doc?.members;
-      // if (!doc?.tempMembers || doc?.tempMembers?.length === 0) {
-      //   doc.tempMembers = undefined;
-      //   delete doc?.tempMembers;
-      // }
       if (!doc?.extends?.length) delete doc?.extends;
       if (
         !doc?.types ||
@@ -295,22 +243,19 @@ class Doc {
 
   serializeNode(node?: Node) {
     if (node == undefined) return undefined;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const type = node?.type
-      ? this.serializeType(
-          this.checker?.getTypeAtLocation((node as { name?: any }).name),
-          node
-        )
-      : undefined;
+
+    const type =
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      node?.type?.kind !== undefined ? SyntaxKind[node?.type?.kind] : undefined;
+    const typeName = this?.checker?.typeToString(
+      this.checker?.getTypeAtLocation((node as { name?: any }).name),
+      node
+    );
+
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     const name: string | undefined = node?.name?.escapedText?.toString();
-    console.log(
-      'serializeNode a',
-      SyntaxKind[node.kind],
-      (node as { name?: any }).name
-    );
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
@@ -334,27 +279,60 @@ class Doc {
       });
     });
 
-    const members: TempDocEntry[] = [];
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    node?.members?.forEach((value) => {
-      members.push(this.serializeNode.bind(this)(value));
+    const members: DocEntry[] = node?.members?.map((value) =>
+      this.serializeNode.bind(this)(value)
+    );
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const parameters: DocEntry[] = node?.parameters?.map((value) =>
+      this.serializeNode.bind(this)(value)
+    );
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const statements: DocEntry[] = node?.statements?.map((value) =>
+      this.serializeNode.bind(this)(value)
+    );
+
+    const modifiers = node?.modifiers?.map((modifier) => {
+      return SyntaxKind[modifier.kind];
     });
 
-    // const documentation = this.serializeDocumentation.bind(this)(symbol);
-    const entry: TempDocEntry = {
-      //   modifiers:
-      //     node && canHaveModifiers(node)
-      //       ? (getModifiers(node) as any)
-      //       : undefined,
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const body = this.serializeNode.bind(this)(node?.body);
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const expression = this.serializeNode.bind(this)(node?.expression);
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const _arguments = node?.arguments?.map((argument) => {
+      return this.serializeNode.bind(this)(argument);
+    });
+
+    const code = node?.getText();
+
+    const documentation = this.serializeDocumentation.bind(this)(node);
+    const entry: DocEntry = {
       id,
       uid: new mongo.ObjectId().toString(),
       name,
+      code,
+      body,
       type,
+      typeName,
+      expression,
+      arguments: _arguments,
+      parameters,
+      statements,
+      modifiers,
       kind: SyntaxKind[node.kind],
-      // documentation,
+      documentation,
       members,
       extends: _extends?.flat(),
     };
@@ -365,12 +343,43 @@ class Doc {
     return cleaned;
   }
 
-  serializeType(type?: Type, node?: Node) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    console.log('serializeType', this.checker.typeToString(type as Type, node));
-    return this?.checker?.typeToString(type as Type, node);
+  serializeDocumentation(node?: Node) {
+    if (node == undefined) return undefined;
+    const symbol = this.checker?.getSymbolAtLocation?.(node);
+    const comments = symbol?.getDocumentationComment(this.checker);
+    const text = displayPartsToString(comments);
+    const documentation = {
+      text,
+    };
+
+    const tags = symbol?.getJsDocTags();
+    if (tags)
+      for (const tag of tags) {
+        const name = tag.name === 'param' ? 'parameters' : tag.name;
+        if (documentation[name] === undefined) documentation[name] = [];
+        if (tag.text)
+          if (name === 'parameters') {
+            const parameterName = tag.text.filter(
+              (p) => p.kind === 'parameterName'
+            )[0].text;
+            const parameterText = tag.text
+              .filter((p) => p.kind === 'text')
+              .map((p) => p.text.trim())
+              .filter((p) => p && p !== '')
+              .join(' ');
+            const doc: DocEntry = {
+              name: parameterName,
+              text: parameterText,
+            } as unknown as BaseDocEntry;
+            if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
+            if (!doc.text) documentation[name].push(parameterName);
+            else documentation[name].push(doc);
+          } else documentation[name].push(...tag.text.map((x) => x.text));
+        else documentation[name].push(true);
+      }
+    if (!tags || (!tags.length && !text)) return undefined;
+    return documentation;
   }
 }
 
-export { Doc, TempDocEntry as DocEntry };
+export { Doc, DocEntry };
