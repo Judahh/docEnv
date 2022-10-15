@@ -22,7 +22,7 @@ class User extends A implements B {
    */
   public name: string;
   /**
-   * setName
+   * Set name
    * @param name f-name
    */
   public setName(name: string) {

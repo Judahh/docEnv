@@ -186,6 +186,10 @@ class Doc {
       }
     }
 
+    this.refactorDocumentations(output);
+
+    // console.log('output', JSON.stringify(output, null, 5));
+
     this.refactorObjects(output);
 
     return output;
@@ -445,7 +449,11 @@ class Doc {
 
     const code = node?.getText();
 
-    const documentation = this.serializeDocumentation.bind(this)(node);
+    const documentation =
+      this.serializeDocumentation.bind(this)(node) ||
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      this.serializeDocumentation.bind(this)(node.name);
     const entry: DocEntry = {
       id,
       uid: new mongo.ObjectId().toString(),
@@ -472,21 +480,38 @@ class Doc {
     };
 
     const cleaned = this.cleanUp(entry);
-    console.log('a cleaned node:', cleaned);
+    // console.log('a cleaned node:', cleaned);
+
+    // if (name === 'setName') {
+    //   console.log(
+    //     'a cleaned node:',
+    //     cleaned,
+    //     this.serializeDocumentation.bind(this)(node),
+    //     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    //     // @ts-ignore
+    //     this.serializeDocumentation.bind(this)(node.name),
+    //     this.serializeDocumentation.bind(this)(fullTypeName as unknown as Node)
+    //   );
+    // }
 
     return cleaned;
   }
 
   serializeDocumentation(node?: Node) {
     if (node == undefined) return undefined;
-    const symbol = this.checker?.getSymbolAtLocation?.(node);
-    const comments = symbol?.getDocumentationComment(this.checker);
+    let symbol;
+    try {
+      symbol = this.checker?.getSymbolAtLocation?.(node);
+    } catch (error) {
+      symbol = node as unknown as Symbol;
+    }
+    const comments = symbol?.getDocumentationComment?.(this.checker);
     const text = displayPartsToString(comments);
     const documentation = {
       text,
     };
 
-    const tags = symbol?.getJsDocTags();
+    const tags = symbol?.getJsDocTags?.();
     if (tags)
       for (const tag of tags) {
         const name = tag.name === 'param' ? 'parameters' : tag.name;
@@ -543,6 +568,10 @@ class Doc {
         const found = base?.find((b) => {
           if (typeof object === 'string') object = { name: object };
           if (typeof b === 'string') b = { name: b };
+          if (b && b.id == undefined)
+            b.id = b.uid || new mongo.ObjectId().toString();
+          if (object && object.id == undefined)
+            object.id = object.uid || new mongo.ObjectId().toString();
 
           return b?.name === object?.name && b?.id === object?.id;
         });
@@ -581,10 +610,16 @@ class Doc {
           ) {
             if (Array.isArray(current[index]?.[key])) {
               // console.log(`current[index][${key}] is array`);
-              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-              // @ts-ignore
-              current[index][key] = current[index]?.[key]?.map((o) =>
-                this.refactorObject(o, base, current?.[index], true)
+              // // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // // @ts-ignore
+              // current[index][key] = current[index]?.[key]?.map((o) =>
+              //   this.refactorObject(o, base, current?.[index], true)
+              // );
+              this.refactorDocumentations(
+                current?.[index]?.[key],
+                base,
+                current?.[index],
+                true
               );
             } else if (typeof current[index]?.[key] === 'object') {
               // console.log(`current[index][${key}] is object`);
@@ -610,6 +645,132 @@ class Doc {
       );
     }
     // console.log('refactorObjects', JSON.stringify(current, null, 5));
+  }
+
+  refactorDocumentation(
+    object: DocEntry,
+    // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+    _base?: DocEntry[],
+    // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+    _parent?: DocEntry,
+    // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+    _notBase?: boolean
+  ): DocEntry {
+    let deleteDocumentation = false;
+    if (typeof object != 'string' && object?.documentation) {
+      if (
+        typeof object?.documentation != 'string' &&
+        object?.documentation?.parameters
+      ) {
+        if (object?.parameters) {
+          const oP = object?.parameters?.map((p) =>
+            typeof p != 'string' ? p?.name : p
+          );
+          const dP = object?.documentation?.parameters?.map((p) =>
+            typeof p != 'string' ? p?.name : p
+          );
+          if (oP?.length === dP?.length) {
+            for (let index = 0; index < oP?.length; index++) {
+              if (dP.find((p) => p === oP[index]) == undefined) {
+                deleteDocumentation = true;
+                break;
+              }
+            }
+          } else deleteDocumentation = true;
+          for (
+            let index = 0;
+            index < object?.documentation?.parameters.length;
+            index++
+          ) {
+            const parameter = object?.documentation?.parameters[index];
+            let found = object?.parameters?.find((p) =>
+              typeof p != 'string'
+                ? p?.name ===
+                  (typeof parameter != 'string' ? parameter?.name : parameter)
+                : p ===
+                  (typeof parameter != 'string' ? parameter?.name : parameter)
+            );
+            if (found) {
+              if (typeof found === 'string') found = { name: found };
+              found.text =
+                typeof parameter != 'string' ? parameter?.text : parameter;
+              object.documentation.parameters[index] = undefined;
+            }
+          }
+        } else deleteDocumentation = true;
+
+        if (deleteDocumentation) {
+          // console.log('deleteDocumentation', object);
+          delete object.documentation;
+        } else {
+          // console.log('keepDocumentation', object);
+          object.documentation.parameters =
+            object?.documentation?.parameters?.filter?.((p) => p);
+          if (!object?.documentation?.parameters?.length)
+            delete object.documentation.parameters;
+          if (object.documentation.text) {
+            object.text = object.documentation.text;
+            delete object.documentation.text;
+          }
+          if (!Object.keys(object.documentation).length)
+            delete object.documentation;
+        }
+      }
+    }
+    return object;
+  }
+
+  refactorDocumentations(
+    current?: DocEntry | DocEntry[],
+    base?: DocEntry[],
+    parent?: DocEntry,
+    notBase?: boolean
+  ): void {
+    if (!base) base = Array.isArray(current) ? current : [current];
+    if (Array.isArray(current)) {
+      for (let index = 0; index < current.length; index++) {
+        if (typeof current[index] === 'string')
+          current[index] = { name: current[index] } as BaseDocEntry;
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        // console.log(`current[index] ${current?.[index]?.name}`);
+        for (const key in current[index] as BaseDocEntry) {
+          // console.log(`current[index][${key}]`);
+          if (
+            Object.prototype.hasOwnProperty.call(current[index], key) &&
+            current?.[index]?.[key]
+          ) {
+            if (Array.isArray(current[index]?.[key])) {
+              // console.log(`current[index][${key}] is array`);
+              this.refactorDocumentations(
+                current?.[index]?.[key],
+                base,
+                current?.[index],
+                true
+              );
+            } else if (typeof current[index]?.[key] === 'object') {
+              // console.log(`current[index][${key}] is object`);
+              current[index] = this.refactorDocumentation(
+                current[index],
+                base,
+                parent,
+                notBase
+              );
+            } else {
+              // console.log(`current[index][${key}] is string`);
+            }
+          }
+        }
+      }
+    } else {
+      // console.log('current is not array');
+      current = this.refactorDocumentation(
+        current,
+        base as DocEntry[],
+        parent,
+        notBase
+      );
+    }
   }
 }
 
