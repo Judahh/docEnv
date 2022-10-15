@@ -22,7 +22,7 @@ import {
   parseJsonConfigFileContent,
   // isExportDeclaration,
   sys,
-  isClassDeclaration,
+  // isClassDeclaration,
   Declaration,
   displayPartsToString,
   getCombinedModifierFlags,
@@ -30,11 +30,59 @@ import {
   // isInterfaceDeclaration,
   // isTypeAliasDeclaration,
   ModifierFlags,
+  createSourceFile,
+  ScriptTarget,
   // Signature,
   // SignatureKind,
   // SymbolDisplayPart,
   // SymbolTable,
 } from 'typescript';
+
+export enum Operation {
+  // eslint-disable-next-line no-unused-vars
+  or = 0,
+  // eslint-disable-next-line no-unused-vars
+  and,
+  // eslint-disable-next-line no-unused-vars
+  add,
+  // eslint-disable-next-line no-unused-vars
+  sub,
+  // eslint-disable-next-line no-unused-vars
+  mul,
+  // eslint-disable-next-line no-unused-vars
+  div,
+  // eslint-disable-next-line no-unused-vars
+  mod,
+  // eslint-disable-next-line no-unused-vars
+  eq,
+  // eslint-disable-next-line no-unused-vars
+  neq,
+  // eslint-disable-next-line no-unused-vars
+  lt,
+  // eslint-disable-next-line no-unused-vars
+  lte,
+  // eslint-disable-next-line no-unused-vars
+  gt,
+  // eslint-disable-next-line no-unused-vars
+  gte,
+  // eslint-disable-next-line no-unused-vars
+  not,
+  // eslint-disable-next-line no-unused-vars
+  neg,
+  // eslint-disable-next-line no-unused-vars
+  pos,
+  // eslint-disable-next-line no-unused-vars
+  in,
+  // eslint-disable-next-line no-unused-vars
+  nin,
+}
+
+const operatorToOperation = {
+  50: Operation.and,
+  51: Operation.or,
+  55: Operation.and,
+  56: Operation.or,
+};
 
 interface BaseDocEntry {
   modifiers?: DocEntry[];
@@ -48,6 +96,12 @@ interface BaseDocEntry {
   code?: string;
   body?: DocEntry;
   expression?: DocEntry;
+  initializer?: DocEntry;
+  operator?: string;
+  operation?: Operation;
+  operationName?: string;
+  left?: DocEntry;
+  right?: DocEntry;
   arguments?: DocEntry[];
   statements?: DocEntry[];
   fileName?: string;
@@ -96,7 +150,8 @@ class Doc {
     'object',
     'symbol',
   ];
-  protected checker: TypeChecker | undefined;
+  protected checker?: TypeChecker;
+  protected options?: CompilerOptions;
   /** Generate documentation for all classes in a set of .ts files */
   async generateDocumentation(
     override?: {
@@ -168,6 +223,8 @@ class Doc {
     const fileContent = parseJsonConfigFileContent(config, sys, currentDir);
 
     if (override.filenames) fileContent.fileNames = override.filenames;
+
+    this.options = fileContent.options;
     return {
       options: fileContent.options,
       fileNames: fileContent.fileNames,
@@ -187,19 +244,19 @@ class Doc {
   /** visit nodes finding exported classes */
   visit(node: Node, output?: Array<DocEntry>, rootDir?: string): void {
     // console.log('visit', SyntaxKind[node.kind]);
-    if (isClassDeclaration(node)) {
-      console.log('class', node);
-    }
+    // if (isClassDeclaration(node)) {
+    //   console.log('class', node);
+    // }
     // Only consider exported nodes
     if (!this.isNodeExported(node)) {
       return;
     }
 
-    console.log(
-      'visit a',
-      SyntaxKind[node.kind],
-      (node as { name?: any }).name
-    );
+    // console.log(
+    //   'visit a',
+    //   SyntaxKind[node.kind],
+    //   (node as { name?: any }).name
+    // );
 
     // const type = (node as { name?: any })?.name
     //   ? this?.checker?.typeToString(
@@ -229,6 +286,13 @@ class Doc {
       if (!doc?.parameters?.length) delete doc.parameters;
       if (!doc?.statements?.length) delete doc.statements;
       if (!doc?.modifiers?.length) delete doc.modifiers;
+      if (!doc?.initializer) delete doc.initializer;
+      if (!doc?.operator) {
+        delete doc.operator;
+        delete doc.operation;
+      }
+      if (!doc?.left) delete doc.left;
+      if (!doc?.right) delete doc.right;
       if (!doc?.escapedName || doc?.escapedName == 'default')
         delete doc.escapedName;
       if (!doc?.types?.length) delete doc?.types;
@@ -254,18 +318,72 @@ class Doc {
   serializeNode(node?: Node) {
     if (node == undefined) return undefined;
 
-    const type =
+    let type =
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       node?.type?.kind !== undefined ? SyntaxKind[node?.type?.kind] : undefined;
-    const typeName = this?.checker?.typeToString(
-      this.checker?.getTypeAtLocation((node as { name?: any }).name),
-      node
+    const fullTypeName = this.checker?.getTypeAtLocation(
+      (node as { name?: any }).name
     );
+    // const fullType = this.checker?.getTypeAtLocation(node);
+    const typeName = fullTypeName
+      ? this?.checker?.typeToString(fullTypeName, node)
+      : undefined;
+
+    // const fullType = this.checker?.getTypeAtLocation(node);
+
+    if (typeName?.includes('=>') && type == undefined) {
+      const sourceFile = createSourceFile(
+        'temp',
+        `type temp = ${typeName}`,
+        this.options?.target || ScriptTarget.ES2015,
+        true
+      );
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      type = SyntaxKind[sourceFile?.statements?.[0]?.type?.type?.kind];
+    }
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    const name: string | undefined = node?.name?.escapedText?.toString();
+    let name: string | undefined = node?.name?.escapedText?.toString();
+
+    const declaration = this.serializeNode.bind(this)(
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      node?.declarationList?.declarations?.[0]
+    );
+
+    if (name == undefined) {
+      // console.log(
+      //   'name is',
+      //   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      //   // @ts-ignore
+      //   declaration?.name,
+      //   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      //   // @ts-ignore
+      //   node?.declarationList?.declarations?.[0]?.initializer
+      // );
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      name = declaration?.name;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const initializer = this.serializeNode.bind(this)(node?.initializer);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const operatorValue = node?.operatorToken?.kind;
+    const operator = SyntaxKind[operatorValue];
+    const operation = operatorToOperation[operatorValue];
+    const operationName = Operation[operation];
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const left = this.serializeNode.bind(this)(node?.left);
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const right = this.serializeNode.bind(this)(node?.right);
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
@@ -336,6 +454,12 @@ class Doc {
       body,
       type,
       typeName,
+      initializer,
+      operator,
+      operation,
+      operationName,
+      left,
+      right,
       expression,
       arguments: _arguments,
       parameters,
@@ -448,31 +572,36 @@ class Doc {
       for (let index = 0; index < current.length; index++) {
         if (typeof current[index] === 'string')
           current[index] = { name: current[index] } as BaseDocEntry;
-
         for (const key in current[index] as BaseDocEntry) {
+          // console.log(`current[index][${key}]`);
           if (
             Object.prototype.hasOwnProperty.call(current[index], key) &&
             key !== 'linked' &&
             current?.[index]?.[key]
           ) {
             if (Array.isArray(current[index]?.[key])) {
+              // console.log(`current[index][${key}] is array`);
               // eslint-disable-next-line @typescript-eslint/ban-ts-comment
               // @ts-ignore
               current[index][key] = current[index]?.[key]?.map((o) =>
                 this.refactorObject(o, base, current?.[index], true)
               );
             } else if (typeof current[index]?.[key] === 'object') {
+              // console.log(`current[index][${key}] is object`);
               current[index] = this.refactorObject(
                 current[index],
                 base,
                 parent,
                 notBase
               );
+            } else {
+              // console.log(`current[index][${key}] is string`);
             }
           }
         }
       }
     } else {
+      console.log('current is not array');
       current = this.refactorObject(
         current,
         base as DocEntry[],

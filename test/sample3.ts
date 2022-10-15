@@ -25,16 +25,10 @@ class User extends A implements B {
    * setName
    * @param name f-name
    */
-  public setName(name: string) {
+  public setName(name: string): string {
     this.name = name;
     return name;
   }
 }
-
-const a = true;
-const b = false;
-const c = a && b;
-
-export { a, b, c };
 
 export default User;
