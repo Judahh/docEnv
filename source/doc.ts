@@ -78,9 +78,9 @@ type DocEntry = BaseDocEntry | string | undefined;
 //   });
 // };
 
-// function pushIfNotExists<T>(array: T[], item: T) {
-//   if (!array.includes(item)) array.push(item);
-// }
+function pushIfNotExists<T>(array: T[], item: T) {
+  if (!array.includes(item)) array.push(item);
+}
 
 class Doc {
   protected baseTypes = [
@@ -130,6 +130,8 @@ class Doc {
         forEachChild(sourceFile, visit.bind(this));
       }
     }
+
+    this.refactorObjects(output);
 
     return output;
   }
@@ -219,6 +221,14 @@ class Doc {
       if (!doc?.signatures?.length) delete doc.signatures;
       if (doc?.id == undefined) delete doc.id;
       if (!doc?.name) delete doc.name;
+      if (!doc?.code || doc.code.trim() === '') delete doc.code;
+      if (!doc?.body) delete doc.body;
+      if (!doc?.typeName) delete doc.typeName;
+      if (!doc?.expression) delete doc.expression;
+      if (!doc?.arguments?.length) delete doc.arguments;
+      if (!doc?.parameters?.length) delete doc.parameters;
+      if (!doc?.statements?.length) delete doc.statements;
+      if (!doc?.modifiers?.length) delete doc.modifiers;
       if (!doc?.escapedName || doc?.escapedName == 'default')
         delete doc.escapedName;
       if (!doc?.types?.length) delete doc?.types;
@@ -379,6 +389,98 @@ class Doc {
       }
     if (!tags || (!tags.length && !text)) return undefined;
     return documentation;
+  }
+
+  linkObject(newObject?: DocEntry, parent?: DocEntry) {
+    const currentObject: BaseDocEntry = {
+      link: typeof newObject === 'string' ? newObject : newObject?.uid,
+    };
+    if (newObject) {
+      if (typeof newObject === 'string') newObject = { name: newObject };
+      newObject.linked = newObject.linked ? newObject.linked : [];
+      // console.log('newObject', newObject, parent);
+      if (parent) {
+        if (typeof parent === 'string') parent = { name: parent };
+        pushIfNotExists(newObject.linked, parent?.uid || parent?.name);
+      }
+    }
+    return currentObject;
+  }
+
+  refactorObject(
+    object: DocEntry,
+    base?: DocEntry[],
+    parent?: DocEntry,
+    notBase?: boolean
+  ): DocEntry {
+    if (object) {
+      if (notBase && parent) {
+        // find object in base
+        const found = base?.find((b) => {
+          if (typeof object === 'string') object = { name: object };
+          if (typeof b === 'string') b = { name: b };
+
+          return b?.name === object?.name && b?.id === object?.id;
+        });
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        if (found && found?.uid !== object?.uid) {
+          object = this.linkObject(found, parent);
+        } else if (parent) {
+          const newObject = JSON.parse(JSON.stringify(object));
+          newObject.internal = true;
+          object = this.linkObject(newObject, parent);
+          base?.push(newObject);
+        }
+      }
+    }
+    return object;
+  }
+
+  refactorObjects(
+    current?: DocEntry | DocEntry[],
+    base?: DocEntry[],
+    parent?: DocEntry,
+    notBase?: boolean
+  ): void {
+    if (!base) base = Array.isArray(current) ? current : [current];
+    if (Array.isArray(current)) {
+      for (let index = 0; index < current.length; index++) {
+        if (typeof current[index] === 'string')
+          current[index] = { name: current[index] } as BaseDocEntry;
+
+        for (const key in current[index] as BaseDocEntry) {
+          if (
+            Object.prototype.hasOwnProperty.call(current[index], key) &&
+            key !== 'linked' &&
+            current?.[index]?.[key]
+          ) {
+            if (Array.isArray(current[index]?.[key])) {
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-ignore
+              current[index][key] = current[index]?.[key]?.map((o) =>
+                this.refactorObject(o, base, current?.[index], true)
+              );
+            } else if (typeof current[index]?.[key] === 'object') {
+              current[index] = this.refactorObject(
+                current[index],
+                base,
+                parent,
+                notBase
+              );
+            }
+          }
+        }
+      }
+    } else {
+      current = this.refactorObject(
+        current,
+        base as DocEntry[],
+        parent,
+        notBase
+      );
+    }
+    // console.log('refactorObjects', JSON.stringify(current, null, 5));
   }
 }
 
