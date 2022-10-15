@@ -11,7 +11,8 @@ test('Test Simple File', async () => {
     filenames: [
       // './test/sampleAPI/services/aService.ts',
       // './test/sampleAPI/models/cFilter.ts',
-      './test/sample0.ts',
+      // './test/sample0.ts',
+      './test/sample2.ts',
     ],
   });
   console.log(
