@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 // import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
-import { mongo } from 'mongoose';
+import { mongo, ObjectId } from 'mongoose';
 
 import {
   Node,
@@ -84,12 +84,15 @@ const operatorToOperation = {
   56: Operation.or,
 };
 
+type Id = ObjectId | string | number;
+
 interface BaseDocEntry {
   modifiers?: DocEntry[];
-  link?: DocEntry;
-  linked?: DocEntry[];
-  id?: string | number;
+  link?: Id;
+  linked?: Id[];
+  id?: Id;
   name?: string;
+  internal?: boolean;
   escapedName?: string;
   text?: string;
   code?: string;
@@ -118,7 +121,7 @@ interface BaseDocEntry {
   returnType?: DocEntry;
 }
 
-type DocEntry = BaseDocEntry | string | number | undefined;
+type DocEntry = BaseDocEntry | string | Id | undefined;
 
 // const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
 //   return new Promise<T>((resolve, reject) => {
@@ -132,7 +135,24 @@ type DocEntry = BaseDocEntry | string | number | undefined;
 // };
 
 function pushIfNotExists<T>(array: T[], item: T) {
+  console.log('pushIfNotExists', array, item);
   if (!array.includes(item)) array.push(item);
+}
+
+function isObjectId(value: DocEntry): value is ObjectId {
+  // console.log('isObjectId', value);
+  if (typeof value === 'string' && value.match(/^[0-9a-fA-F]{24}$/)) {
+    return true;
+  }
+  return value instanceof mongo.ObjectId;
+}
+
+function newId(): Id {
+  return new mongo.ObjectId().toString() as Id;
+}
+
+function isId(value: DocEntry | ObjectId): value is Id {
+  return typeof value === 'number' || isObjectId(value);
 }
 
 class Doc {
@@ -275,7 +295,8 @@ class Doc {
   }
 
   cleanUp(doc: DocEntry) {
-    if (typeof doc === 'string' || typeof doc === 'number') return doc;
+    if (typeof doc === 'string' || typeof doc === 'number' || isObjectId(doc))
+      return doc;
     if (doc) {
       if (!doc?.documentation) delete doc.documentation;
       if (!doc?.signatures?.length) delete doc.signatures;
@@ -308,6 +329,7 @@ class Doc {
         (doc?.types?.length === 1 &&
           ((typeof doc?.types?.[0] != 'string' &&
             typeof doc?.types?.[0] != 'number' &&
+            !isObjectId(doc?.types?.[0]) &&
             doc?.types?.[0]?.name === 'error') ||
             doc?.types?.[0] === 'error'))
       )
@@ -455,7 +477,7 @@ class Doc {
       // @ts-ignore
       this.serializeDocumentation.bind(this)(node.name);
     const entry: DocEntry = {
-      id: id != undefined ? id : new mongo.ObjectId().toString(),
+      id: id != undefined ? id : newId(),
       name,
       code,
       body,
@@ -540,25 +562,25 @@ class Doc {
   }
 
   toObject(object?: DocEntry) {
-    if (typeof object === 'string') object = { name: object };
-    else if (typeof object === 'number') object = { id: object };
+    // console.log('toObject', object);
+    if (isId(object)) object = { id: object };
+    else if (typeof object === 'string') object = { name: object };
     return object as BaseDocEntry;
   }
 
   linkObject(newObject?: DocEntry, parent?: DocEntry) {
     const currentObject: BaseDocEntry = {
-      link:
-        typeof newObject === 'string' || typeof newObject === 'number'
-          ? newObject
-          : newObject?.id,
+      link: isId(newObject) ? newObject : newObject?.id,
     };
     if (newObject) {
       newObject = this.toObject(newObject);
       newObject.linked = newObject.linked ? newObject.linked : [];
       // console.log('newObject', newObject, parent);
       if (parent) {
+        console.log('link parent', parent);
         parent = this.toObject(parent);
-        pushIfNotExists(newObject.linked, parent?.id || parent?.name);
+        console.log('link parent 2', parent);
+        pushIfNotExists(newObject.linked, parent?.id);
       }
     }
     return currentObject;
@@ -571,16 +593,15 @@ class Doc {
     level = 0
   ): DocEntry {
     if (object) {
-      if (level > 1 && parent) {
+      if (level > 0 && parent) {
         // find object in base
         const found = base?.find((b) => {
           object = this.toObject(object);
           b = this.toObject(b);
-          if (b && b.id == undefined) b.id = new mongo.ObjectId().toString();
-          if (object && object.id == undefined)
-            object.id = new mongo.ObjectId().toString();
+          if (b && b.id == undefined) b.id = newId();
+          if (object && object.id == undefined) object.id = newId();
 
-          return b?.name === object?.name && b?.id === object?.id;
+          return b?.id === object?.id;
         });
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
@@ -591,11 +612,13 @@ class Doc {
         // @ts-ignore
         if (found) {
           object = this.linkObject(found, parent);
-        } else if (parent) {
-          const newObject = JSON.parse(JSON.stringify(object));
+        } else {
+          const newObject = JSON.parse(JSON.stringify(object)) as BaseDocEntry;
           newObject.internal = true;
           object = this.linkObject(newObject, parent);
-          base?.push(newObject);
+
+          console.log('newObject a', newObject);
+
           for (const key in newObject) {
             if (Object.prototype.hasOwnProperty.call(object, key)) {
               if (Array.isArray(object[key]) && object[key].length > 0)
@@ -606,7 +629,7 @@ class Doc {
                   level + 1
                 );
               else if (typeof object[key] === 'object')
-                this.refactorObject.bind(this)(
+                newObject[key] = this.refactorObject.bind(this)(
                   newObject[key],
                   base,
                   newObject,
@@ -614,6 +637,8 @@ class Doc {
                 );
             }
           }
+
+          base?.push(newObject);
         }
       } else if (level > 0) {
         if (parent == undefined) {
@@ -621,7 +646,6 @@ class Doc {
         } else {
           console.log('parent is not undefined', object, parent);
         }
-        if (typeof object === 'string') object = { name: object };
         object = this.toObject(object);
         for (const key in object) {
           console.log('key', key, Array.isArray(object[key]));
@@ -634,7 +658,7 @@ class Doc {
                 level + 1
               );
             else if (typeof object[key] === 'object')
-              this.refactorObject.bind(this)(
+              object[key] = this.refactorObject.bind(this)(
                 object[key],
                 base,
                 object,
@@ -656,17 +680,19 @@ class Doc {
     if (!base) base = Array.isArray(current) ? current : [current];
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index++) {
-        if (typeof current[index] === 'string')
-          current[index] = { name: current[index] } as BaseDocEntry;
+        if (base == current) {
+          console.log('current I', current.length, index);
+        }
+        current[index] = this.toObject(current[index]);
         for (const key in current[index] as BaseDocEntry) {
-          console.log(`current[index][${key}]`);
+          // console.log(`current[index][${key}]`);
           if (
             Object.prototype.hasOwnProperty.call(current[index], key) &&
             key !== 'linked' &&
             current?.[index]?.[key]
           ) {
             if (Array.isArray(current[index]?.[key])) {
-              console.log(`current[index][${key}] is array`);
+              // console.log(`current[index][${key}] is array`);
               // // eslint-disable-next-line @typescript-eslint/ban-ts-comment
               // // @ts-ignore
               // current[index][key] = current[index]?.[key]?.map((o) =>
@@ -679,7 +705,7 @@ class Doc {
                 level + 1
               );
             } else if (typeof current[index]?.[key] === 'object') {
-              console.log(`current[index][${key}] is object`);
+              // console.log(`current[index][${key}] is object`);
               current[index] = this.refactorObject.bind(this)(
                 current[index],
                 base,
@@ -687,7 +713,7 @@ class Doc {
                 level + 1
               );
             } else {
-              console.log(`current[index][${key}] is string`);
+              // console.log(`current[index][${key}] is string`);
             }
           }
         }
@@ -706,22 +732,18 @@ class Doc {
 
   refactorDocumentation(object: DocEntry): DocEntry {
     let deleteDocumentation = false;
-    if (
-      typeof object != 'string' &&
-      typeof object != 'number' &&
-      object?.documentation
-    ) {
+    if (typeof object != 'string' && !isId(object) && object?.documentation) {
       if (
         typeof object?.documentation != 'string' &&
-        typeof object?.documentation != 'number' &&
+        !isId(object?.documentation) &&
         object?.documentation?.parameters
       ) {
         if (object?.parameters) {
           const oP = object?.parameters?.map((p) =>
-            typeof p != 'string' && typeof p != 'number' ? p?.name : p
+            typeof p != 'string' && !isId(p) ? p?.name : p
           );
           const dP = object?.documentation?.parameters?.map((p) =>
-            typeof p != 'string' && typeof p != 'number' ? p?.name : p
+            typeof p != 'string' && !isId(p) ? p?.name : p
           );
           if (oP?.length === dP?.length) {
             for (let index = 0; index < oP?.length; index++) {
@@ -738,20 +760,20 @@ class Doc {
           ) {
             const parameter = object?.documentation?.parameters[index];
             let found = object?.parameters?.find((p) =>
-              typeof p != 'string' && typeof p != 'number'
+              typeof p != 'string' && !isId(p)
                 ? p?.name ===
-                  (typeof parameter != 'string' && typeof parameter != 'number'
+                  (typeof parameter != 'string' && !isId(parameter)
                     ? parameter?.name
                     : parameter)
                 : p ===
-                  (typeof parameter != 'string' && typeof parameter != 'number'
+                  (typeof parameter != 'string' && !isId(parameter)
                     ? parameter?.name
                     : parameter)
             );
             if (found) {
               found = this.toObject(found);
               found.text =
-                typeof parameter != 'string' && typeof parameter != 'number'
+                typeof parameter != 'string' && !isId(parameter)
                   ? parameter?.text
                   : parameter?.toString();
               object.documentation.parameters[index] = undefined;
@@ -783,8 +805,7 @@ class Doc {
   refactorDocumentations(current?: DocEntry | DocEntry[]): void {
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index++) {
-        if (typeof current[index] === 'string')
-          current[index] = { name: current[index] } as BaseDocEntry;
+        current[index] = this.toObject(current[index]);
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         // console.log(`current[index] ${current?.[index]?.name}`);
