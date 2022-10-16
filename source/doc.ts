@@ -135,7 +135,7 @@ type DocEntry = BaseDocEntry | string | Id | undefined;
 // };
 
 function pushIfNotExists<T>(array: T[], item: T) {
-  console.log('pushIfNotExists', array, item);
+  // console.log('pushIfNotExists', array, item);
   if (!array.includes(item)) array.push(item);
 }
 
@@ -193,6 +193,7 @@ class Doc {
 
     // Get the checker, we will use it to find more about classes
     this.checker = program.getTypeChecker();
+    // eslint-disable-next-line prefer-const
     let output: DocEntry[] = [];
 
     const visit = (node: Node) => this.visit(node, output, rootDir);
@@ -205,9 +206,11 @@ class Doc {
       }
     }
 
+    // console.log('output pre doc', JSON.stringify(output, null, 5));
+
     this.refactorDocumentations.bind(this)(output);
 
-    // console.log('output', JSON.stringify(output, null, 5));
+    // console.log('output doc', JSON.stringify(output, null, 5));
 
     this.refactorObjects.bind(this)(output);
 
@@ -579,9 +582,9 @@ class Doc {
       newObject.linked = newObject.linked ? newObject.linked : [];
       // console.log('newObject', newObject, parent);
       if (parent) {
-        console.log('link parent', parent);
+        // console.log('link parent', parent);
         parent = this.toObject(parent);
-        console.log('link parent 2', parent);
+        // console.log('link parent 2', parent);
         pushIfNotExists(newObject.linked, parent?.id);
       }
     }
@@ -605,11 +608,11 @@ class Doc {
 
           return b?.id === object?.id;
         });
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        if (object?.id == 15 && object?.name == 'name') {
-          console.log('object 15', object, found);
-        }
+        // // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // // @ts-ignore
+        // if (object?.id == 15 && object?.name == 'name') {
+        //   console.log('object 15', object, found);
+        // }
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         if (found) {
@@ -639,18 +642,18 @@ class Doc {
           newObject.internal = true;
           object = this.linkObject(newObject, parent);
 
-          console.log('newObject a', newObject);
+          // console.log('newObject a', newObject);
           base?.push(newObject);
         }
       } else if (level > 0) {
-        if (parent == undefined) {
-          console.log('parent is undefined', object);
-        } else {
-          console.log('parent is not undefined', object, parent);
-        }
+        // if (parent == undefined) {
+        //   console.log('parent is undefined', object);
+        // } else {
+        //   console.log('parent is not undefined', object, parent);
+        // }
         object = this.toObject(object);
         for (const key in object) {
-          console.log('key', key, Array.isArray(object[key]));
+          // console.log('key', key, Array.isArray(object[key]));
           if (Object.prototype.hasOwnProperty.call(object, key)) {
             if (Array.isArray(object[key]))
               this.refactorObjects.bind(this)(
@@ -682,9 +685,9 @@ class Doc {
     if (!base) base = Array.isArray(current) ? current : [current];
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index++) {
-        if (base == current) {
-          console.log('current I', current.length, index);
-        }
+        // if (base == current) {
+        //   console.log('current I', current.length, index);
+        // }
         current[index] = this.toObject(current[index]);
         for (const key in current[index] as BaseDocEntry) {
           // console.log(`current[index][${key}]`);
@@ -784,10 +787,10 @@ class Doc {
         } else deleteDocumentation = true;
 
         if (deleteDocumentation) {
-          // console.log('deleteDocumentation', object);
+          console.log('deleteDocumentation', object);
           delete object.documentation;
         } else {
-          // console.log('keepDocumentation', object);
+          console.log('keepDocumentation', object);
           object.documentation.parameters =
             object?.documentation?.parameters?.filter?.((p) => p);
           if (!object?.documentation?.parameters?.length)
@@ -798,6 +801,8 @@ class Doc {
           }
           if (!Object.keys(object.documentation).length)
             delete object.documentation;
+          if (!object.documentation) delete object.documentation;
+          // console.log('keepDocumentation', object.documentation);
         }
       }
     }
@@ -817,20 +822,22 @@ class Doc {
             Object.prototype.hasOwnProperty.call(current[index], key) &&
             current?.[index]?.[key]
           ) {
-            if (Array.isArray(current[index]?.[key])) {
-              // console.log(`current[index][${key}] is array`);
-              this.refactorDocumentations(current?.[index]?.[key]);
-            } else if (typeof current[index]?.[key] === 'object') {
-              // console.log(`current[index][${key}] is object`);
-              current[index] = this.refactorDocumentation(current[index]);
-            } else {
-              // console.log(`current[index][${key}] is string`);
-            }
+            this.refactorDocumentations(current[index]?.[key]);
           }
         }
       }
     } else {
       // console.log('current is not array');
+      for (const key in current as BaseDocEntry) {
+        // console.log(`current[${key}]`);
+        if (
+          Object.prototype.hasOwnProperty.call(current, key) &&
+          current?.[key] &&
+          (typeof current?.[key] === 'object' || Array.isArray(current?.[key]))
+        ) {
+          this.refactorDocumentations(current?.[key]);
+        }
+      }
       current = this.refactorDocumentation(current);
     }
   }
@@ -846,9 +853,37 @@ class Doc {
         );
         if (found != -1 && base[found] != undefined) {
           base[found] = this.toObject(base[found]);
-          console.log('refactorLink before', base[found]);
-          (base[found] as BaseDocEntry).link = link;
-          console.log('refactorLink after', base[found]);
+          if ((base[found] as BaseDocEntry).link == id) {
+            console.log('refactorLink before', base[found]);
+            (base[found] as BaseDocEntry).link = link;
+            console.log('refactorLink after', base[found]);
+          } else {
+            for (const key in base[found] as BaseDocEntry) {
+              if (
+                Object.prototype.hasOwnProperty.call(
+                  base[found] as BaseDocEntry,
+                  key
+                )
+              ) {
+                if (typeof (base[found] as BaseDocEntry)[key] === 'object') {
+                  const bElement = (base[found] as BaseDocEntry)[key];
+                  if ((bElement as BaseDocEntry).link == id) {
+                    console.log('refactorLink 2 before', base[found]);
+                    (bElement as BaseDocEntry).link = link;
+                    console.log('refactorLink 2 after', base[found]);
+                  }
+                } else if (Array.isArray((base[found] as BaseDocEntry)[key])) {
+                  for (const bElement of (base[found] as BaseDocEntry)[key]) {
+                    if ((bElement as BaseDocEntry).link == id) {
+                      console.log('refactorLink 3 before', base[found]);
+                      (bElement as BaseDocEntry).link = link;
+                      console.log('refactorLink 3 after', base[found]);
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
         linked = linked.filter((e) => e != linkedE);
       }
