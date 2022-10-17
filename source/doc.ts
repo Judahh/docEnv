@@ -214,7 +214,7 @@ class Doc {
 
     this.refactorObjects.bind(this)(output);
 
-    // output = this.refactorLinks.bind(this)(output) as DocEntry[];
+    // output = this.refactorLinks.bind(this)(output);
 
     return output;
   }
@@ -787,10 +787,10 @@ class Doc {
         } else deleteDocumentation = true;
 
         if (deleteDocumentation) {
-          console.log('deleteDocumentation', object);
+          // console.log('deleteDocumentation', object);
           delete object.documentation;
         } else {
-          console.log('keepDocumentation', object);
+          // console.log('keepDocumentation', object);
           object.documentation.parameters =
             object?.documentation?.parameters?.filter?.((p) => p);
           if (!object?.documentation?.parameters?.length)
@@ -842,21 +842,31 @@ class Doc {
     }
   }
 
-  refactorLink(element: BaseDocEntry, base: DocEntry[]): DocEntry[] {
+  refactorLink(
+    base: DocEntry[],
+    parent: DocEntry | DocEntry[],
+    index
+  ): DocEntry[] {
+    const element = index != undefined ? parent?.[index] : parent;
     const link = element.link;
-    let linked = element.linked;
+    const linked = element.linked;
     const id = element.id;
+    // console.log('refactorLink', base, parent, index);
+
     if (link && linked) {
       for (const linkedE of linked) {
         const found = base.findIndex((e) =>
           isId(e) ? e === linkedE : e?.id === linkedE
         );
-        if (found != -1 && base[found] != undefined) {
+        if (found != -1) {
           base[found] = this.toObject(base[found]);
+          if (this.checkIsJustLink(base?.[found] as BaseDocEntry)) {
+            base = this.refactorLink.bind(this)(base, base, found);
+          }
           if ((base[found] as BaseDocEntry).link == id) {
-            console.log('refactorLink before', base[found]);
+            console.log('refactorLink before', base[found], element, linkedE);
             (base[found] as BaseDocEntry).link = link;
-            console.log('refactorLink after', base[found]);
+            console.log('refactorLink after', base[found], element, linkedE);
           } else {
             for (const key in base[found] as BaseDocEntry) {
               if (
@@ -868,16 +878,36 @@ class Doc {
                 if (typeof (base[found] as BaseDocEntry)[key] === 'object') {
                   const bElement = (base[found] as BaseDocEntry)[key];
                   if ((bElement as BaseDocEntry).link == id) {
-                    console.log('refactorLink 2 before', base[found]);
+                    console.log(
+                      'refactorLink 2 before',
+                      base[found],
+                      element,
+                      linkedE,
+                      base.find((e) => (isId(e) ? e === link : e?.id === link))
+                    );
                     (bElement as BaseDocEntry).link = link;
-                    console.log('refactorLink 2 after', base[found]);
+                    console.log(
+                      'refactorLink 2 after',
+                      base[found],
+                      element,
+                      linkedE
+                    );
                   }
                 } else if (Array.isArray((base[found] as BaseDocEntry)[key])) {
                   for (const bElement of (base[found] as BaseDocEntry)[key]) {
                     if ((bElement as BaseDocEntry).link == id) {
-                      console.log('refactorLink 3 before', base[found]);
+                      console.log(
+                        'refactorLink 3 before',
+                        base[found],
+                        element
+                      );
                       (bElement as BaseDocEntry).link = link;
-                      console.log('refactorLink 3 after', base[found]);
+                      console.log(
+                        'refactorLink 3 after',
+                        base[found],
+                        element,
+                        linkedE
+                      );
                     }
                   }
                 }
@@ -885,58 +915,56 @@ class Doc {
             }
           }
         }
-        linked = linked.filter((e) => e != linkedE);
+        element.linked = linked.filter((e) => e != linkedE);
       }
     }
+    // console.log(base.length);
     base = base.filter((e) => (isId(e) ? e != id : e?.id != id));
+    // console.log(base.length);
     return base;
   }
 
-  checkIsJustLink(element: BaseDocEntry, base: DocEntry[]): DocEntry[] {
+  checkIsJustLink(element?: BaseDocEntry): boolean {
+    if (!element) return false;
     const link = element.link;
     const linked = element.linked;
     const id = element.id;
-    return link && linked && id
-      ? this.refactorLink.bind(this)(element, base)
-      : base;
+    const length = Object.keys(element).length;
+    let ok = true;
+    if (length === 4) {
+      ok = Object.keys(element).includes('internal');
+    } else if (length < 3 || length > 4) {
+      ok = false;
+    }
+    const isLink = !!(link && linked && id && ok);
+    // console.log('checkIsJustLink', element, isLink);
+    return isLink;
   }
 
-  refactorLinks(current?: DocEntry | DocEntry[]): DocEntry | DocEntry[] {
+  refactorLinks(
+    base: DocEntry[],
+    parent?: DocEntry | DocEntry[],
+    index?
+  ): DocEntry[] {
+    // let newBase = base;
+    if (!parent) parent = base;
+    const current = index != undefined ? parent[index] : parent;
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index++) {
-        const element = current[index];
-        if (
-          typeof element === 'object' &&
-          !isId(element) &&
-          Object.keys(element).length < 5 &&
-          element?.link &&
-          element?.linked
-        ) {
-          const length = Object.keys(element).length;
-          console.log('refactorLinks', element, length);
-          if (length === 4) {
-            if (element?.internal) {
-              current = this.checkIsJustLink.bind(this)(element, current);
-            }
-          } else if (length === 3) {
-            current = this.checkIsJustLink.bind(this)(element, current);
-          }
-        }
-        if (
-          Array.isArray(current[index]) ||
-          typeof current[index] === 'object'
-        ) {
-          current[index] = this.refactorLinks(current[index]) as DocEntry;
-        }
+        base = this.refactorLinks(base, current, index);
       }
     } else if (typeof current === 'object') {
+      if (this.checkIsJustLink(current as BaseDocEntry)) {
+        // console.log('refactorLinks', current);
+        base = this.refactorLink.bind(this)(base, parent, index);
+      }
       for (const key in current) {
         if (Object.prototype.hasOwnProperty.call(current, key)) {
-          current[key] = this.refactorLinks(current[key]) as DocEntry;
+          base = this.refactorLinks(base, current, key);
         }
       }
     }
-    return current;
+    return base;
   }
 }
 
