@@ -12,8 +12,8 @@ test('Test Simple File', async () => {
       // './test/sampleAPI/services/aService.ts',
       // './test/sampleAPI/models/cFilter.ts',
       // './test/sample0.ts',
-      // './test/sample1.ts',
-      './test/sample2.ts',
+      './test/sample1.ts',
+      // './test/sample2.ts',
       // './test/sample3.ts',
     ],
   });

@@ -99,6 +99,7 @@ interface BaseDocEntry {
   body?: DocEntry;
   expression?: DocEntry;
   initializer?: DocEntry;
+  declaration?: DocEntry;
   operator?: string;
   operation?: Operation;
   operationName?: string;
@@ -316,6 +317,7 @@ class Doc {
       if (!doc?.statements?.length) delete doc.statements;
       if (!doc?.modifiers?.length) delete doc.modifiers;
       if (!doc?.initializer) delete doc.initializer;
+      if (!doc?.declaration) delete doc.declaration;
       if (!doc?.operator) {
         delete doc.operator;
         delete doc.operation;
@@ -400,9 +402,11 @@ class Doc {
       name = declaration?.name;
     }
 
+    // console.log('name is', name, node);
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     const initializer = this.serializeNode.bind(this)(node?.initializer);
+    // console.log('initializer is', name, initializer);
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     const operatorValue = node?.operatorToken?.kind;
@@ -489,6 +493,7 @@ class Doc {
       type,
       typeName,
       initializer,
+      declaration,
       operator,
       operation,
       operationName,
@@ -505,8 +510,10 @@ class Doc {
       extends: _extends?.flat(),
     };
 
+    // console.log('a entry node:', name, entry);
     const cleaned = this.cleanUp(entry);
-    // console.log('a cleaned node:', cleaned);
+    // if (name == 'readDatabaseOptions')
+    //   console.log('a cleaned node:', name, cleaned, declaration);
 
     // if (name === 'setName') {
     //   console.log(
