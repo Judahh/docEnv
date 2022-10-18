@@ -1,29 +1,29 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Parsed, Route } from './models/parsed';
-import { Parameter, Schema, Swagger } from './models/swagger';
+import { Parameter, Schema, Swagger, Async } from './models/docAPI';
 
-class SwaggerGenerator {
-  static generateHeaderParameters(receivedSwagger: Swagger): {
+class DocAPIGenerator {
+  static generateHeaderParameters(receivedDocAPI: Swagger | Async): {
     parameters: Array<Parameter>;
-    swagger: Swagger;
+    docAPI: Swagger | Async;
   } {
-    const swagger = receivedSwagger;
-    if (!swagger.components) swagger.components = {};
-    if (!swagger.components.schemas) swagger.components.schemas = {};
-    if (!swagger.components.schemas.page) {
-      swagger.components.schemas.page = {
+    const docAPI = receivedDocAPI;
+    if (!docAPI.components) docAPI.components = {};
+    if (!docAPI.components.schemas) docAPI.components.schemas = {};
+    if (!docAPI.components.schemas.page) {
+      docAPI.components.schemas.page = {
         type: 'integer',
         format: 'int32',
       };
     }
-    if (!swagger.components.schemas.pageSize) {
-      swagger.components.schemas.pageSize = {
+    if (!docAPI.components.schemas.pageSize) {
+      docAPI.components.schemas.pageSize = {
         type: 'integer',
         format: 'int32',
       };
     }
-    if (!swagger.components.schemas.pages) {
-      swagger.components.schemas.pages = {
+    if (!docAPI.components.schemas.pages) {
+      docAPI.components.schemas.pages = {
         type: 'integer',
         format: 'int32',
       };
@@ -52,7 +52,7 @@ class SwaggerGenerator {
           },
         },
       ],
-      swagger,
+      docAPI,
     };
   }
 
@@ -60,17 +60,17 @@ class SwaggerGenerator {
     route: Route,
     name: string,
     crud: string,
-    receivedSwagger: Swagger
+    receivedDocAPI: Swagger | Async
   ) {
     const method = route.methods[crud];
     const input = method.input;
-    const headerParameters = this.generateHeaderParameters(receivedSwagger);
+    const headerParameters = this.generateHeaderParameters(receivedDocAPI);
     const parameters: Array<Parameter> = headerParameters.parameters;
-    const swagger = headerParameters.swagger;
+    const docAPI = headerParameters.docAPI;
     for (const key in input) {
       if (Object.prototype.hasOwnProperty.call(input, key)) {
         const element = input[key];
-        const schema = this.generateSchema(element, swagger, key);
+        const schema = this.generateSchema(element, docAPI, key);
         if (key === 'id') {
           parameters.push({
             name: key,
@@ -90,18 +90,18 @@ class SwaggerGenerator {
         });
       }
     }
-    if (!swagger?.paths?.[route.path]?.[name])
-      swagger.paths[route.path][name] = {};
-    swagger.paths[route.path][name].parameters = parameters;
-    return swagger;
+    if (!docAPI?.paths?.[route.path]?.[name])
+      docAPI.paths[route.path][name] = {};
+    docAPI.paths[route.path][name].parameters = parameters;
+    return docAPI;
   }
 
   static generateSchema(
     receivedElement: any,
-    receivedSwagger: Swagger,
+    receivedDocAPI: Swagger | Async,
     name?: string
-  ): { swagger: Swagger; $ref: string; name?: string } {
-    let swagger = receivedSwagger;
+  ): { docAPI: Swagger | Async; $ref: string; name?: string } {
+    let docAPI = receivedDocAPI;
     const element = receivedElement;
     // console.log('generateSchema', element, name);
     let schema: Schema;
@@ -130,8 +130,8 @@ class SwaggerGenerator {
       for (const key in element) {
         if (Object.prototype.hasOwnProperty.call(element, key)) {
           const element2 = element[key];
-          const nS = this.generateSchema(element2, swagger, key);
-          swagger = nS.swagger;
+          const nS = this.generateSchema(element2, docAPI, key);
+          docAPI = nS.docAPI;
           if (!schema?.properties?.[key]) schema.properties[key] = {};
           schema.properties[key].$ref = nS.$ref;
         }
@@ -152,17 +152,17 @@ class SwaggerGenerator {
         // @ts-ignore
         schema?.items?.allOf;
       for (const item of items) {
-        const nS = this.generateSchema(item, swagger);
-        swagger = nS.swagger;
+        const nS = this.generateSchema(item, docAPI);
+        docAPI = nS.docAPI;
         if (nS.$ref) {
           item.$ref = nS.$ref;
         }
       }
     }
-    if (!swagger.components) swagger.components = {};
-    if (!swagger.components.schemas) swagger.components.schemas = {};
+    if (!docAPI.components) docAPI.components = {};
+    if (!docAPI.components.schemas) docAPI.components.schemas = {};
 
-    const found = this.findSchema(swagger?.components?.schemas, element, name);
+    const found = this.findSchema(docAPI?.components?.schemas, element, name);
     const $ref = found
       ? found.$ref
         ? found.$ref
@@ -171,9 +171,9 @@ class SwaggerGenerator {
         : `#/components/schemas/${name}`
       : `#/components/schemas/${name}`;
 
-    if (!found) swagger.components.schemas[`${name}`] = schema;
+    if (!found) docAPI.components.schemas[`${name}`] = schema;
     return {
-      swagger,
+      docAPI,
       $ref,
       name,
     };
@@ -260,63 +260,64 @@ class SwaggerGenerator {
     route: Route,
     name: string,
     crud: string,
-    receivedSwagger: Swagger
+    receivedDocAPI: Swagger | Async
   ): Swagger {
-    let swagger = this.generateParameters(route, name, crud, receivedSwagger);
-    swagger = this.generateSchema(route.methods[crud].output, swagger)?.swagger;
-    swagger = this.generateSchema(route.methods[crud].input, swagger)?.swagger;
-    return swagger;
+    let docAPI = this.generateParameters(route, name, crud, receivedDocAPI);
+    docAPI = this.generateSchema(route.methods[crud].output, docAPI)?.docAPI;
+    docAPI = this.generateSchema(route.methods[crud].input, docAPI)?.docAPI;
+    return docAPI;
   }
 
   static generateFromMethodName(
     route: Route,
     crud: string,
-    receivedSwagger: Swagger
-  ): Swagger {
-    let swagger = receivedSwagger;
+    receivedDocAPI: Swagger | Async
+  ): Swagger | Async {
+    let docAPI = receivedDocAPI;
     const method = route.methods[crud];
     if (method)
       for (const key in method.http) {
         if (Object.prototype.hasOwnProperty.call(method.http, key)) {
           const name = method.http[key];
-          swagger = this.generateMethod(route, name, crud, swagger);
+          docAPI = this.generateMethod(route, name, crud, docAPI);
         }
       }
 
-    return swagger;
+    return docAPI;
   }
 
   static generateFromKey(
     parsed: Parsed,
     key: string,
-    receivedSwagger: Swagger
-  ): Swagger {
-    let swagger = receivedSwagger;
+    receivedDocAPI: Swagger | Async
+  ): Swagger | Async {
+    let docAPI = receivedDocAPI;
     const element = parsed[key];
-    swagger.paths[element.path] = {};
+    docAPI.paths[element.path] = {};
     for (const key2 in element.methods) {
       if (Object.prototype.hasOwnProperty.call(element.methods, key2)) {
-        swagger = this.generateFromMethodName(element, key2, swagger);
+        docAPI = this.generateFromMethodName(element, key2, docAPI);
       }
     }
-    return swagger;
+    return docAPI;
   }
 
-  static generate(parsed: string | Parsed): Swagger {
+  static generate(parsed: string | Parsed): Swagger | Async {
     if (typeof parsed === 'string') {
       parsed = JSON.parse(parsed) as Parsed;
     }
-    let swagger: Swagger = {
+    // TODO: option to generate async
+    let docAPI: Swagger = {
       openapi: '3.0.0',
       paths: {},
     };
     for (const key in parsed) {
       if (Object.prototype.hasOwnProperty.call(parsed, key)) {
-        swagger = this.generateFromKey(parsed, key, swagger);
+        docAPI = this.generateFromKey(parsed, key, docAPI);
       }
     }
-    return swagger;
+    return docAPI;
   }
 }
 
-export { SwaggerGenerator };
+export { DocAPIGenerator };

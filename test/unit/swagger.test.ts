@@ -1,5 +1,5 @@
 import { Generator } from '../../source/generator';
-import { SwaggerGenerator } from '../../source/swaggerGenerator';
+import { DocAPIGenerator } from '../../source/docAPIGenerator';
 
 // const gen0 = {
 //   path1Name: {
@@ -218,6 +218,6 @@ test('Test Simple File', async () => {
   const path = './test/sampleAPI';
   const gen = await Generator.generate(path);
   console.log('received gen:', JSON.stringify(gen, null, 5));
-  const gen0 = await SwaggerGenerator.generate(gen);
-  // console.log('received gen0:', JSON.stringify(gen0, null, 5));
+  const gen0 = await DocAPIGenerator.generate(gen);
+  console.log('received gen0:', JSON.stringify(gen0, null, 5));
 });

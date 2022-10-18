@@ -116,8 +116,21 @@ interface Swagger {
   };
 }
 
+interface Async {
+  openapi: string;
+  info?: Info;
+  servers?: Server[];
+  tags?: Tag[];
+  paths: { [key: string]: Path };
+  components?: {
+    schemas?: { [key: string]: Schema };
+    securitySchemes?: { [key: string]: SecurityScheme };
+  };
+}
+
 export {
   Swagger,
+  Async,
   Contact,
   License,
   Info,
