@@ -108,3 +108,11 @@ export {
   anError,
   anError2,
 };
+
+/**
+ * The timeout for read database requests
+ *
+ * {@label STRING_INDEXER}
+ * @of anError2
+ * @alpha
+ */
