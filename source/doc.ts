@@ -1,5 +1,5 @@
 // import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
-import { isArray } from 'lodash';
+import { filter, isArray } from 'lodash';
 import { mongo, ObjectId } from 'mongoose';
 
 import ts, {
@@ -181,7 +181,7 @@ class Doc {
 
     // Get the checker, we will use it to find more about classes
     this.checker = program.getTypeChecker();
-    const output: DocEntry[] = [];
+    let output: DocEntry[] = [];
 
     const visit = (node: Node) => this.visit(node, output, rootDir);
 
@@ -192,6 +192,8 @@ class Doc {
         forEachChild(sourceFile, visit.bind(this));
       }
     }
+
+    output = this.refactorDocumentations.bind(this)(output) as DocEntry[];
 
     return output;
   }
@@ -462,7 +464,7 @@ class Doc {
 
     // console.log('entry is', JSON.stringify(entry, null, 5));
 
-    entry = this.refactorDocumentations.bind(this)(entry) as BaseDocEntry;
+    entry = this.refactorDocumentations.bind(this)(entry, base) as BaseDocEntry;
 
     entry.declaration = this.linkObject.bind(this)(entry, base, 'declaration');
     entry.initializer = this.linkObject.bind(this)(entry, base, 'initializer');
@@ -819,8 +821,11 @@ class Doc {
   }
 
   refactorDocumentations(
-    current?: DocEntry | DocEntry[]
+    current?: DocEntry | DocEntry[],
+    base?: DocEntry[],
+    parent?: DocEntry
   ): DocEntry | DocEntry[] {
+    if (!base) base = Array.isArray(current) ? current : [current];
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index++) {
         current[index] = this.toObject(current[index]);
@@ -829,7 +834,11 @@ class Doc {
             Object.prototype.hasOwnProperty.call(current[index], key) &&
             current?.[index]?.[key]
           ) {
-            this.refactorDocumentations(current[index]?.[key]);
+            this.refactorDocumentations.bind(this)(
+              current[index]?.[key],
+              base,
+              current[index]
+            );
           }
         }
       }
@@ -840,10 +849,63 @@ class Doc {
           current?.[key] &&
           (typeof current?.[key] === 'object' || Array.isArray(current?.[key]))
         ) {
-          this.refactorDocumentations(current?.[key]);
+          this.refactorDocumentations.bind(this)(current?.[key], base, current);
         }
       }
+
       current = this.refactorDocumentation(current);
+
+      let clear = false;
+
+      if ((current as { of: Node })?.of) {
+        const of = (current as { of: BaseDocEntry[] })?.of?.map((o) => o?.name);
+        const nDoc = JSON.parse(JSON.stringify(current));
+        delete nDoc.of;
+        // console.log('nDoc', nDoc, of, base?.length);
+        for (let index = 0; index < of.length; index++) {
+          const name = of[index];
+          const found = base?.filter((b) => {
+            b = this.toObject(b);
+            // console.log('b?.name', b?.name, name);
+            return b?.name === name;
+          });
+          if (found?.length) {
+            clear = true;
+            // console.log('found', found);
+            for (let index2 = 0; index2 < found.length; index2++) {
+              found[index2] = this.toObject(found[index2]);
+              (found[index2] as BaseDocEntry).documentation = nDoc;
+            }
+            (current as { of: BaseDocEntry[] }).of = (
+              current as { of: BaseDocEntry[] }
+            )?.of?.filter((o) => o?.name !== name);
+          }
+        }
+        if (!(current as { of: BaseDocEntry[] }).of?.length && clear) {
+          delete (current as { of?: BaseDocEntry[] })?.of;
+          let toClear;
+          if (parent) {
+            toClear = base?.filter((b) => {
+              return (
+                (b as BaseDocEntry)?.id != undefined &&
+                (parent as BaseDocEntry)?.id != undefined &&
+                (b as BaseDocEntry)?.id === (parent as BaseDocEntry)?.id
+              );
+            });
+          } else {
+            current = undefined;
+          }
+          console.log('toClear', toClear, parent, base);
+          if (toClear?.length) {
+            console.log('toClear', toClear);
+            for (let index = 0; index < toClear.length; index++) {
+              delete (toClear[index] as BaseDocEntry)?.documentation;
+            }
+          } else if (parent) {
+            delete (parent as BaseDocEntry)?.documentation;
+          }
+        }
+      }
     }
     return current;
   }
