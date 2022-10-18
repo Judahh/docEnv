@@ -416,7 +416,8 @@ class Doc {
 
     const declaration = this.serializeNode.bind(this)(
       (node as unknown as { declarationList: { declarations: Node[] } })
-        ?.declarationList?.declarations?.[0]
+        ?.declarationList?.declarations?.[0],
+      base
     );
 
     if (name == undefined && typeof declaration == 'object') {
@@ -424,23 +425,28 @@ class Doc {
     }
 
     const initializer = this.serializeNode.bind(this)(
-      (node as unknown as { initializer: Node })?.initializer
+      (node as unknown as { initializer: Node })?.initializer,
+      base
     );
 
     const left = this.serializeNode.bind(this)(
-      (node as unknown as { left: Node })?.left
+      (node as unknown as { left: Node })?.left,
+      base
     );
 
     const right = this.serializeNode.bind(this)(
-      (node as unknown as { right: Node })?.right
+      (node as unknown as { right: Node })?.right,
+      base
     );
 
     const body = this.serializeNode.bind(this)(
-      (node as unknown as { body: Node })?.body
+      (node as unknown as { body: Node })?.body,
+      base
     );
 
     const expression = this.serializeNode.bind(this)(
-      (node as unknown as { expression: Node })?.expression
+      (node as unknown as { expression: Node })?.expression,
+      base
     );
 
     const _extends = (
@@ -448,32 +454,32 @@ class Doc {
     )?.heritageClauses?.map((clause) => {
       return clause.types.map((type: Node | undefined) => {
         // return this.checker?.getTypeAtLocation(type.expression)?.symbol?.name;
-        return this.serializeNode.bind(this)(type);
+        return this.serializeNode.bind(this)(type, base);
       });
     });
 
     const members: DocEntry[] = (
       node as unknown as { members: Node[] }
     )?.members?.map((value: Node | undefined) =>
-      this.serializeNode.bind(this)(value)
+      this.serializeNode.bind(this)(value, base)
     );
 
     const parameters: DocEntry[] = (
       node as unknown as { parameters: Node[] }
     )?.parameters?.map((value: Node | undefined) =>
-      this.serializeNode.bind(this)(value)
+      this.serializeNode.bind(this)(value, base)
     );
 
     const statements: DocEntry[] = (
       node as unknown as { statements: Node[] }
     )?.statements?.map((value: Node | undefined) =>
-      this.serializeNode.bind(this)(value)
+      this.serializeNode.bind(this)(value, base)
     );
 
     const _arguments = (
       node as unknown as { arguments: Node[] }
     )?.arguments?.map((argument: Node | undefined) => {
-      return this.serializeNode.bind(this)(argument);
+      return this.serializeNode.bind(this)(argument, base);
     });
 
     let entry: DocEntry = {
@@ -503,20 +509,20 @@ class Doc {
 
     // console.log('entry is', JSON.stringify(entry, null, 5));
 
-    entry = this.refactorDocumentations(entry) as BaseDocEntry;
+    entry = this.refactorDocumentations.bind(this)(entry) as BaseDocEntry;
 
-    entry.declaration = this.linkObject(entry, base, 'declaration');
-    entry.initializer = this.linkObject(entry, base, 'initializer');
-    entry.left = this.linkObject(entry, base, 'left');
-    entry.right = this.linkObject(entry, base, 'right');
-    entry.body = this.linkObject(entry, base, 'body');
-    entry.expression = this.linkObject(entry, base, 'expression');
+    entry.declaration = this.linkObject.bind(this)(entry, base, 'declaration');
+    entry.initializer = this.linkObject.bind(this)(entry, base, 'initializer');
+    entry.left = this.linkObject.bind(this)(entry, base, 'left');
+    entry.right = this.linkObject.bind(this)(entry, base, 'right');
+    entry.body = this.linkObject.bind(this)(entry, base, 'body');
+    entry.expression = this.linkObject.bind(this)(entry, base, 'expression');
 
-    entry.extends = this.linkArray(entry, base, 'extends');
-    entry.members = this.linkArray(entry, base, 'members');
-    entry.parameters = this.linkArray(entry, base, 'parameters');
-    entry.statements = this.linkArray(entry, base, 'statements');
-    entry.arguments = this.linkArray(entry, base, 'arguments');
+    entry.extends = this.linkArray.bind(this)(entry, base, 'extends');
+    entry.members = this.linkArray.bind(this)(entry, base, 'members');
+    entry.parameters = this.linkArray.bind(this)(entry, base, 'parameters');
+    entry.statements = this.linkArray.bind(this)(entry, base, 'statements');
+    entry.arguments = this.linkArray.bind(this)(entry, base, 'arguments');
 
     const cleaned = this.cleanUp(entry);
 
@@ -600,6 +606,7 @@ class Doc {
     index?: number | string,
     index2?: number | string
   ) {
+    // console.log('linkObject', parent, base, index, index2);
     if (
       base == undefined ||
       index == undefined ||
