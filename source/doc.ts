@@ -1,44 +1,26 @@
-/* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 // import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
 import { mongo, ObjectId } from 'mongoose';
 
-import {
+import ts, {
   Node,
-  // Type,
-  // Symbol,
-  // ClassDeclaration,
   SyntaxKind,
-  // Modifier,
   TypeChecker,
   CompilerOptions,
-  // SymbolFlags,
-  // TypeFlags,
   createCompilerHost,
   createProgram,
   forEachChild,
   findConfigFile,
   readConfigFile,
   parseJsonConfigFileContent,
-  // isExportDeclaration,
   sys,
-  // isClassDeclaration,
   Declaration,
   displayPartsToString,
   getCombinedModifierFlags,
-  // isFunctionDeclaration,
-  // isInterfaceDeclaration,
-  // isTypeAliasDeclaration,
   ModifierFlags,
   createSourceFile,
   ScriptTarget,
-  Symbol,
   getModifiers,
   canHaveModifiers,
-  // Signature,
-  // SignatureKind,
-  // SymbolDisplayPart,
-  // SymbolTable,
 } from 'typescript';
 
 export enum Operation {
@@ -127,22 +109,25 @@ interface BaseDocEntry {
 
 type DocEntry = BaseDocEntry | string | Id | undefined;
 
-// const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
-//   return new Promise<T>((resolve, reject) => {
-//     setTimeout(async () => {
-//       const result: T = await toCall.bind(self)(...args);
-//       resolve(result);
-//     }, 0);
-//   });
-// };
+export const caller = async <T>(
+  // eslint-disable-next-line no-unused-vars
+  toCall: (...args) => unknown,
+  self,
+  ...args
+) => {
+  return new Promise<T>((resolve) => {
+    setTimeout(async () => {
+      const result = await toCall.bind(self)(...args);
+      resolve(result as T);
+    }, 0);
+  });
+};
 
 function pushIfNotExists<T>(array: T[], item: T) {
-  // console.log('pushIfNotExists', array, item);
   if (!array.includes(item)) array.push(item);
 }
 
 function isObjectId(value: DocEntry): value is ObjectId {
-  // console.log('isObjectId', value);
   if (typeof value === 'string' && value.match(/^[0-9a-fA-F]{24}$/)) {
     return true;
   }
@@ -195,8 +180,7 @@ class Doc {
 
     // Get the checker, we will use it to find more about classes
     this.checker = program.getTypeChecker();
-    // eslint-disable-next-line prefer-const
-    let output: DocEntry[] = [];
+    const output: DocEntry[] = [];
 
     const visit = (node: Node) => this.visit(node, output, rootDir);
 
@@ -207,16 +191,6 @@ class Doc {
         forEachChild(sourceFile, visit.bind(this));
       }
     }
-
-    // console.log('output pre doc', JSON.stringify(output, null, 5));
-
-    // this.refactorDocumentations.bind(this)(output);
-
-    // console.log('output doc', JSON.stringify(output, null, 5));
-
-    // this.refactorObjects.bind(this)(output);
-
-    // output = this.refactorLinks.bind(this)(output);
 
     return output;
   }
@@ -273,30 +247,13 @@ class Doc {
 
   /** visit nodes finding exported classes */
   visit(node: Node, output?: Array<DocEntry>, rootDir?: string): void {
-    // console.log('visit', SyntaxKind[node.kind]);
-    // if (isClassDeclaration(node)) {
-    //   console.log('class', node);
-    // }
     // Only consider exported nodes
     if (!this.isNodeExported(node)) {
       return;
     }
 
-    // console.log(
-    //   'visit a',
-    //   SyntaxKind[node.kind],
-    //   (node as { name?: any }).name
-    // );
-
-    // const type = (node as { name?: any })?.name
-    //   ? this?.checker?.typeToString(
-    //       this.checker?.getTypeAtLocation((node as { name?: any }).name),
-    //       node
-    //     )
-    //   : undefined;
     const newNode = this.serializeNode(node, output);
-    // console.log('newNode', newNode);
-    // output?.push({ node: newNode, type } as DocEntry);
+
     output?.push(newNode);
     forEachChild(node, (node) => this.visit.bind(this)(node, output, rootDir));
   }
@@ -349,11 +306,6 @@ class Doc {
     }
     return doc;
   }
-
-  // serializeLink(node?: Node, base: DocEntry[]) {
-  //   const sNode = this.serializeNode(node);
-  //   if (sNode) return this.linkObject(sNode, base);
-  // }
 
   serializeNode(node?: Node, base?: DocEntry[]): DocEntry {
     if (node == undefined) return undefined;
@@ -453,7 +405,6 @@ class Doc {
       node as unknown as { heritageClauses: { types: Node[] }[] }
     )?.heritageClauses?.map((clause) => {
       return clause.types.map((type: Node | undefined) => {
-        // return this.checker?.getTypeAtLocation(type.expression)?.symbol?.name;
         return this.serializeNode.bind(this)(type, base);
       });
     });
@@ -537,11 +488,11 @@ class Doc {
 
   serializeDocumentation(node?: Node) {
     if (node == undefined) return undefined;
-    let symbol: Symbol | Symbol | undefined;
+    let symbol: ts.Symbol | undefined;
     try {
       symbol = this.checker?.getSymbolAtLocation?.(node);
     } catch (error) {
-      symbol = node as unknown as Symbol;
+      symbol = node as unknown as ts.Symbol;
     }
     const comments = symbol?.getDocumentationComment?.(this.checker);
     const text = displayPartsToString(comments);
@@ -582,7 +533,6 @@ class Doc {
   }
 
   toObject(object?: DocEntry) {
-    // console.log('toObject', object);
     if (isId(object)) object = { id: object };
     else if (typeof object === 'string') object = { name: object };
     return object as BaseDocEntry;
@@ -606,7 +556,6 @@ class Doc {
     index?: number | string,
     index2?: number | string
   ) {
-    // console.log('linkObject', parent, base, index, index2);
     if (
       base == undefined ||
       index == undefined ||
@@ -640,21 +589,9 @@ class Doc {
       parent[index][index2] = {
         link: isId(newObject) ? newObject : newObject?.id,
       };
-      // console.log(
-      //   'linkObject',
-      //   parent[index],
-      //   newObject,
-      //   base.filter((x) => (x as BaseDocEntry).id === newObject?.id)
-      // );
       return parent[index][index2] as BaseDocEntry;
     } else {
       parent[index] = { link: isId(newObject) ? newObject : newObject?.id };
-      // console.log(
-      //   'linkObject',
-      //   parent[index],
-      //   newObject,
-      //   base.filter((x) => (x as BaseDocEntry).id === newObject?.id)
-      // );
       return parent[index] as BaseDocEntry;
     }
   }
@@ -666,11 +603,8 @@ class Doc {
     if (newObject) {
       newObject = this.toObject(newObject);
       newObject.linked = newObject.linked ? newObject.linked : [];
-      // console.log('newObject', newObject, parent);
       if (parent) {
-        // console.log('link parent', parent);
         parent = this.toObject(parent);
-        // console.log('link parent 2', parent);
         pushIfNotExists(newObject.linked, parent?.id);
       }
     }
@@ -720,19 +654,11 @@ class Doc {
           const newObject = JSON.parse(JSON.stringify(object)) as BaseDocEntry;
           newObject.internal = true;
           object = this.linkAnObject(newObject, parent);
-
-          // console.log('newObject a', newObject);
           base?.push(newObject);
         }
       } else if (level > 0) {
-        // if (parent == undefined) {
-        //   console.log('parent is undefined', object);
-        // } else {
-        //   console.log('parent is not undefined', object, parent);
-        // }
         object = this.toObject(object);
         for (const key in object) {
-          // console.log('key', key, Array.isArray(object[key]));
           if (Object.prototype.hasOwnProperty.call(object, key)) {
             if (Array.isArray(object[key]))
               this.refactorObjects.bind(this)(
@@ -764,19 +690,14 @@ class Doc {
     if (!base) base = Array.isArray(current) ? current : [current];
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index++) {
-        // if (base == current) {
-        //   console.log('current I', current.length, index);
-        // }
         current[index] = this.toObject(current[index]);
         for (const key in current[index] as BaseDocEntry) {
-          // console.log(`current[index][${key}]`);
           if (
             Object.prototype.hasOwnProperty.call(current[index], key) &&
             key !== 'linked' &&
             current?.[index]?.[key]
           ) {
             if (Array.isArray(current[index]?.[key])) {
-              // console.log(`current[index][${key}] is array`);
               this.refactorObjects.bind(this)(
                 current?.[index]?.[key],
                 base,
@@ -784,15 +705,12 @@ class Doc {
                 level + 1
               );
             } else if (typeof current[index]?.[key] === 'object') {
-              // console.log(`current[index][${key}] is object`);
               current[index] = this.refactorObject.bind(this)(
                 current[index],
                 base,
                 parent,
                 level + 1
               );
-            } else {
-              // console.log(`current[index][${key}] is string`);
             }
           }
         }
@@ -806,7 +724,6 @@ class Doc {
         level + 1
       );
     }
-    // console.log('refactorObjects', JSON.stringify(current, null, 5));
   }
 
   refactorDocumentation(object: DocEntry): DocEntry {
@@ -861,10 +778,8 @@ class Doc {
         } else deleteDocumentation = true;
 
         if (deleteDocumentation) {
-          // console.log('deleteDocumentation', object);
           delete object.documentation;
         } else {
-          // console.log('keepDocumentation', object);
           object.documentation.parameters =
             object?.documentation?.parameters?.filter?.((p) => p);
           if (!object?.documentation?.parameters?.length)
@@ -876,7 +791,6 @@ class Doc {
           if (!Object.keys(object.documentation).length)
             delete object.documentation;
           if (!object.documentation) delete object.documentation;
-          // console.log('keepDocumentation', object.documentation);
         }
       }
     }
@@ -889,9 +803,7 @@ class Doc {
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index++) {
         current[index] = this.toObject(current[index]);
-        // console.log(`current[index] ${current?.[index]?.name}`);
         for (const key in current[index] as BaseDocEntry) {
-          // console.log(`current[index][${key}]`);
           if (
             Object.prototype.hasOwnProperty.call(current[index], key) &&
             current?.[index]?.[key]
@@ -901,9 +813,7 @@ class Doc {
         }
       }
     } else {
-      // console.log('current is not array');
       for (const key in current as BaseDocEntry) {
-        // console.log(`current[${key}]`);
         if (
           Object.prototype.hasOwnProperty.call(current, key) &&
           current?.[key] &&
@@ -926,7 +836,6 @@ class Doc {
     const link = element.link;
     const linked = element.linked;
     const id = element.id;
-    // console.log('refactorLink', base, parent, index);
 
     if (link && linked) {
       for (const linkedE of linked) {
@@ -990,12 +899,10 @@ class Doc {
             }
           }
         }
-        element.linked = linked.filter((e: any) => e != linkedE);
+        element.linked = linked.filter((e) => e != linkedE);
       }
     }
-    // console.log(base.length);
     base = base.filter((e) => (isId(e) ? e != id : e?.id != id));
-    // console.log(base.length);
     return base;
   }
 
@@ -1012,7 +919,6 @@ class Doc {
       ok = false;
     }
     const isLink = !!(link && linked && id && ok);
-    // console.log('checkIsJustLink', element, isLink);
     return isLink;
   }
 
@@ -1021,7 +927,6 @@ class Doc {
     parent?: DocEntry | DocEntry[],
     index?: string | number | undefined
   ): DocEntry[] {
-    // let newBase = base;
     if (!parent) parent = base;
     const current = index != undefined ? parent[index] : parent;
     if (Array.isArray(current)) {
@@ -1030,7 +935,6 @@ class Doc {
       }
     } else if (typeof current === 'object') {
       if (this.checkIsJustLink(current as BaseDocEntry)) {
-        // console.log('refactorLinks', current);
         base = this.refactorLink.bind(this)(base, parent, index);
       }
       for (const key in current) {
