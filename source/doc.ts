@@ -32,6 +32,9 @@ import {
   ModifierFlags,
   createSourceFile,
   ScriptTarget,
+  Symbol,
+  getModifiers,
+  canHaveModifiers,
   // Signature,
   // SignatureKind,
   // SymbolDisplayPart,
@@ -127,8 +130,6 @@ type DocEntry = BaseDocEntry | string | Id | undefined;
 // const caller = async <T>(toCall: (...a) => unknown, self, ...args) => {
 //   return new Promise<T>((resolve, reject) => {
 //     setTimeout(async () => {
-//       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-//       // @ts-ignore
 //       const result: T = await toCall.bind(self)(...args);
 //       resolve(result);
 //     }, 0);
@@ -209,11 +210,11 @@ class Doc {
 
     // console.log('output pre doc', JSON.stringify(output, null, 5));
 
-    this.refactorDocumentations.bind(this)(output);
+    // this.refactorDocumentations.bind(this)(output);
 
     // console.log('output doc', JSON.stringify(output, null, 5));
 
-    this.refactorObjects.bind(this)(output);
+    // this.refactorObjects.bind(this)(output);
 
     // output = this.refactorLinks.bind(this)(output);
 
@@ -293,7 +294,7 @@ class Doc {
     //       node
     //     )
     //   : undefined;
-    const newNode = this.serializeNode(node);
+    const newNode = this.serializeNode(node, output);
     // console.log('newNode', newNode);
     // output?.push({ node: newNode, type } as DocEntry);
     output?.push(newNode);
@@ -311,6 +312,7 @@ class Doc {
       if (!doc?.code || doc.code.trim() === '') delete doc.code;
       if (!doc?.body) delete doc.body;
       if (!doc?.typeName) delete doc.typeName;
+      if (!doc?.operationName) delete doc.operationName;
       if (!doc?.expression) delete doc.expression;
       if (!doc?.arguments?.length) delete doc.arguments;
       if (!doc?.parameters?.length) delete doc.parameters;
@@ -348,22 +350,23 @@ class Doc {
     return doc;
   }
 
-  serializeNode(node?: Node) {
+  // serializeLink(node?: Node, base: DocEntry[]) {
+  //   const sNode = this.serializeNode(node);
+  //   if (sNode) return this.linkObject(sNode, base);
+  // }
+
+  serializeNode(node?: Node, base?: DocEntry[]): DocEntry {
     if (node == undefined) return undefined;
 
-    let type =
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      node?.type?.kind !== undefined ? SyntaxKind[node?.type?.kind] : undefined;
+    const tempKind = (node as unknown as { type: Node })?.type?.kind;
+
+    let type = tempKind !== undefined ? SyntaxKind[tempKind] : undefined;
     const fullTypeName = this.checker?.getTypeAtLocation(
-      (node as { name?: any }).name
+      (node as unknown as { name: Node }).name
     );
-    // const fullType = this.checker?.getTypeAtLocation(node);
     const typeName = fullTypeName
       ? this?.checker?.typeToString(fullTypeName, node)
       : undefined;
-
-    // const fullType = this.checker?.getTypeAtLocation(node);
 
     if (typeName?.includes('=>') && type == undefined) {
       const sourceFile = createSourceFile(
@@ -372,120 +375,108 @@ class Doc {
         this.options?.target || ScriptTarget.ES2015,
         true
       );
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      type = SyntaxKind[sourceFile?.statements?.[0]?.type?.type?.kind];
+
+      type =
+        SyntaxKind[
+          (sourceFile?.statements?.[0] as unknown as { type: { type: Node } })
+            ?.type?.type?.kind
+        ];
     }
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    let name: string | undefined = node?.name?.escapedText?.toString();
-
-    const declaration = this.serializeNode.bind(this)(
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      node?.declarationList?.declarations?.[0]
-    );
-
-    if (name == undefined) {
-      // console.log(
-      //   'name is',
-      //   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      //   // @ts-ignore
-      //   declaration?.name,
-      //   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      //   // @ts-ignore
-      //   node?.declarationList?.declarations?.[0]?.initializer
-      // );
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      name = declaration?.name;
+    let id: Id | undefined;
+    try {
+      id = (this.checker?.getSymbolAtLocation?.(node) as unknown as { id: Id })
+        ?.id;
+    } catch (error) {
+      id = (node as unknown as { id: Id })?.id;
     }
 
-    // console.log('name is', name, node);
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const initializer = this.serializeNode.bind(this)(node?.initializer);
-    // console.log('initializer is', name, initializer);
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const operatorValue = node?.operatorToken?.kind;
+    let name: string | undefined = (
+      node as unknown as { name: { escapedText: string } }
+    )?.name?.escapedText?.toString();
+
+    const code = node?.getText();
+    const operatorValue = (node as unknown as { operatorToken: Node })
+      ?.operatorToken?.kind;
     const operator = SyntaxKind[operatorValue];
     const operation = operatorToOperation[operatorValue];
     const operationName = Operation[operation];
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const left = this.serializeNode.bind(this)(node?.left);
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const right = this.serializeNode.bind(this)(node?.right);
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    let id;
-    try {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      id = this.checker?.getSymbolAtLocation?.(node)?.id;
-    } catch (error) {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      id = node?.id;
+    const modifiers = canHaveModifiers(node)
+      ? getModifiers(node)?.map((modifier) => {
+          return SyntaxKind[modifier.kind];
+        })
+      : undefined;
+
+    const documentation =
+      this.serializeDocumentation.bind(this)(node) ||
+      this.serializeDocumentation.bind(this)(
+        (node as unknown as { name: Node })?.name
+      );
+
+    const declaration = this.serializeNode.bind(this)(
+      (node as unknown as { declarationList: { declarations: Node[] } })
+        ?.declarationList?.declarations?.[0]
+    );
+
+    if (name == undefined && typeof declaration == 'object') {
+      name = (declaration as BaseDocEntry)?.name;
     }
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const _extends = node?.heritageClauses?.map((clause) => {
-      return clause.types.map((type) => {
+    const initializer = this.serializeNode.bind(this)(
+      (node as unknown as { initializer: Node })?.initializer
+    );
+
+    const left = this.serializeNode.bind(this)(
+      (node as unknown as { left: Node })?.left
+    );
+
+    const right = this.serializeNode.bind(this)(
+      (node as unknown as { right: Node })?.right
+    );
+
+    const body = this.serializeNode.bind(this)(
+      (node as unknown as { body: Node })?.body
+    );
+
+    const expression = this.serializeNode.bind(this)(
+      (node as unknown as { expression: Node })?.expression
+    );
+
+    const _extends = (
+      node as unknown as { heritageClauses: { types: Node[] }[] }
+    )?.heritageClauses?.map((clause) => {
+      return clause.types.map((type: Node | undefined) => {
         // return this.checker?.getTypeAtLocation(type.expression)?.symbol?.name;
         return this.serializeNode.bind(this)(type);
       });
     });
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const members: DocEntry[] = node?.members?.map((value) =>
+    const members: DocEntry[] = (
+      node as unknown as { members: Node[] }
+    )?.members?.map((value: Node | undefined) =>
       this.serializeNode.bind(this)(value)
     );
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const parameters: DocEntry[] = node?.parameters?.map((value) =>
+    const parameters: DocEntry[] = (
+      node as unknown as { parameters: Node[] }
+    )?.parameters?.map((value: Node | undefined) =>
       this.serializeNode.bind(this)(value)
     );
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const statements: DocEntry[] = node?.statements?.map((value) =>
+    const statements: DocEntry[] = (
+      node as unknown as { statements: Node[] }
+    )?.statements?.map((value: Node | undefined) =>
       this.serializeNode.bind(this)(value)
     );
 
-    const modifiers = node?.modifiers?.map((modifier) => {
-      return SyntaxKind[modifier.kind];
-    });
-
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const body = this.serializeNode.bind(this)(node?.body);
-
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const expression = this.serializeNode.bind(this)(node?.expression);
-
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const _arguments = node?.arguments?.map((argument) => {
+    const _arguments = (
+      node as unknown as { arguments: Node[] }
+    )?.arguments?.map((argument: Node | undefined) => {
       return this.serializeNode.bind(this)(argument);
     });
 
-    const code = node?.getText();
-
-    const documentation =
-      this.serializeDocumentation.bind(this)(node) ||
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      this.serializeDocumentation.bind(this)(node.name);
-    const entry: DocEntry = {
+    let entry: DocEntry = {
       id: id != undefined ? id : newId(),
       name,
       code,
@@ -510,29 +501,37 @@ class Doc {
       extends: _extends?.flat(),
     };
 
-    // console.log('a entry node:', name, entry);
-    const cleaned = this.cleanUp(entry);
-    // if (name == 'readDatabaseOptions')
-    //   console.log('a cleaned node:', name, cleaned, declaration);
+    // console.log('entry is', JSON.stringify(entry, null, 5));
 
-    // if (name === 'setName') {
-    //   console.log(
-    //     'a cleaned node:',
-    //     cleaned,
-    //     this.serializeDocumentation.bind(this)(node),
-    //     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    //     // @ts-ignore
-    //     this.serializeDocumentation.bind(this)(node.name),
-    //     this.serializeDocumentation.bind(this)(fullTypeName as unknown as Node)
-    //   );
-    // }
+    entry = this.refactorDocumentations(entry) as BaseDocEntry;
+
+    entry.declaration = this.linkObject(entry, base, 'declaration');
+    entry.initializer = this.linkObject(entry, base, 'initializer');
+    entry.left = this.linkObject(entry, base, 'left');
+    entry.right = this.linkObject(entry, base, 'right');
+    entry.body = this.linkObject(entry, base, 'body');
+    entry.expression = this.linkObject(entry, base, 'expression');
+
+    entry.extends = this.linkArray(entry, base, 'extends');
+    entry.members = this.linkArray(entry, base, 'members');
+    entry.parameters = this.linkArray(entry, base, 'parameters');
+    entry.statements = this.linkArray(entry, base, 'statements');
+    entry.arguments = this.linkArray(entry, base, 'arguments');
+
+    const cleaned = this.cleanUp(entry);
+
+    // console.log(
+    //   'cleaned is',
+    //   JSON.stringify(cleaned, null, 5),
+    //   JSON.stringify(entry, null, 5)
+    // );
 
     return cleaned;
   }
 
   serializeDocumentation(node?: Node) {
     if (node == undefined) return undefined;
-    let symbol;
+    let symbol: Symbol | Symbol | undefined;
     try {
       symbol = this.checker?.getSymbolAtLocation?.(node);
     } catch (error) {
@@ -552,12 +551,12 @@ class Doc {
         if (tag.text)
           if (name === 'parameters') {
             const parameterName = tag.text.filter(
-              (p) => p.kind === 'parameterName'
+              (p: { kind: string }) => p.kind === 'parameterName'
             )[0].text;
             const parameterText = tag.text
-              .filter((p) => p.kind === 'text')
-              .map((p) => p.text.trim())
-              .filter((p) => p && p !== '')
+              .filter((p: { kind: string }) => p.kind === 'text')
+              .map((p: { text: string }) => p.text.trim())
+              .filter((p: string) => p && p !== '')
               .join(' ');
             const doc: DocEntry = {
               name: parameterName,
@@ -566,7 +565,10 @@ class Doc {
             if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
             if (!doc.text) documentation[name].push(parameterName);
             else documentation[name].push(doc);
-          } else documentation[name].push(...tag.text.map((x) => x.text));
+          } else
+            documentation[name].push(
+              ...tag.text.map((x: { text: any }) => x.text)
+            );
         else documentation[name].push(true);
       }
     if (!tags || (!tags.length && !text)) return undefined;
@@ -580,7 +582,77 @@ class Doc {
     return object as BaseDocEntry;
   }
 
-  linkObject(newObject?: DocEntry, parent?: DocEntry) {
+  linkArray(parent: DocEntry, base?: DocEntry[], index?: number | string) {
+    if (base == undefined || index == undefined) return undefined;
+    if (parent?.[index] && Array.isArray(parent?.[index])) {
+      const array = parent[index].map((_child, index2) => {
+        const object = this.linkObject(parent, base, index, index2);
+        return object;
+      });
+      return array;
+    }
+    return parent?.[index];
+  }
+
+  linkObject(
+    parent: DocEntry,
+    base?: DocEntry[],
+    index?: number | string,
+    index2?: number | string
+  ) {
+    if (
+      base == undefined ||
+      index == undefined ||
+      parent == undefined ||
+      parent[index] == undefined
+    )
+      return undefined;
+    parent = this.toObject(parent);
+    let p = parent[index];
+    p = index2 != undefined ? p[index2] : p;
+    let newObject = this.toObject(JSON.parse(JSON.stringify(p)));
+    const foundIndex = base?.findIndex((x) => {
+      const nX = this.toObject(JSON.parse(JSON.stringify(x)));
+      return nX?.id === newObject?.id;
+    });
+    if (foundIndex !== undefined && foundIndex !== -1) {
+      base[foundIndex] = this.toObject(
+        JSON.parse(JSON.stringify(base?.[foundIndex]))
+      );
+      newObject = base[foundIndex] as BaseDocEntry;
+      if (newObject) {
+        newObject.linked = newObject.linked ? newObject.linked : [];
+        pushIfNotExists(newObject.linked, parent?.id);
+      }
+    } else if (newObject) {
+      newObject.linked = newObject.linked ? newObject.linked : [];
+      pushIfNotExists(newObject.linked, parent?.id);
+    }
+    pushIfNotExists(base, newObject);
+    if (index2 != undefined) {
+      parent[index][index2] = {
+        link: isId(newObject) ? newObject : newObject?.id,
+      };
+      // console.log(
+      //   'linkObject',
+      //   parent[index],
+      //   newObject,
+      //   base.filter((x) => (x as BaseDocEntry).id === newObject?.id)
+      // );
+      return parent[index][index2] as BaseDocEntry;
+    } else {
+      parent[index] = { link: isId(newObject) ? newObject : newObject?.id };
+      // console.log(
+      //   'linkObject',
+      //   parent[index],
+      //   newObject,
+      //   base.filter((x) => (x as BaseDocEntry).id === newObject?.id)
+      // );
+      return parent[index] as BaseDocEntry;
+    }
+  }
+
+  linkAnObject(newObject?: DocEntry, parent?: DocEntry) {
     const currentObject: BaseDocEntry = {
       link: isId(newObject) ? newObject : newObject?.id,
     };
@@ -615,15 +687,8 @@ class Doc {
 
           return b?.id === object?.id;
         });
-        // // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // // @ts-ignore
-        // if (object?.id == 15 && object?.name == 'name') {
-        //   console.log('object 15', object, found);
-        // }
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
         if (found) {
-          object = this.linkObject(found, parent);
+          object = this.linkAnObject(found, parent);
         } else {
           object = this.toObject(object);
           for (const key in object) {
@@ -647,7 +712,7 @@ class Doc {
 
           const newObject = JSON.parse(JSON.stringify(object)) as BaseDocEntry;
           newObject.internal = true;
-          object = this.linkObject(newObject, parent);
+          object = this.linkAnObject(newObject, parent);
 
           // console.log('newObject a', newObject);
           base?.push(newObject);
@@ -705,11 +770,6 @@ class Doc {
           ) {
             if (Array.isArray(current[index]?.[key])) {
               // console.log(`current[index][${key}] is array`);
-              // // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-              // // @ts-ignore
-              // current[index][key] = current[index]?.[key]?.map((o) =>
-              //   this.refactorObject(o, base, current?.[index], true)
-              // );
               this.refactorObjects.bind(this)(
                 current?.[index]?.[key],
                 base,
@@ -816,12 +876,12 @@ class Doc {
     return object;
   }
 
-  refactorDocumentations(current?: DocEntry | DocEntry[]): void {
+  refactorDocumentations(
+    current?: DocEntry | DocEntry[]
+  ): DocEntry | DocEntry[] {
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index++) {
         current[index] = this.toObject(current[index]);
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
         // console.log(`current[index] ${current?.[index]?.name}`);
         for (const key in current[index] as BaseDocEntry) {
           // console.log(`current[index][${key}]`);
@@ -847,12 +907,13 @@ class Doc {
       }
       current = this.refactorDocumentation(current);
     }
+    return current;
   }
 
   refactorLink(
     base: DocEntry[],
     parent: DocEntry | DocEntry[],
-    index
+    index: string | number | undefined
   ): DocEntry[] {
     const element = index != undefined ? parent?.[index] : parent;
     const link = element.link;
@@ -922,7 +983,7 @@ class Doc {
             }
           }
         }
-        element.linked = linked.filter((e) => e != linkedE);
+        element.linked = linked.filter((e: any) => e != linkedE);
       }
     }
     // console.log(base.length);
@@ -951,7 +1012,7 @@ class Doc {
   refactorLinks(
     base: DocEntry[],
     parent?: DocEntry | DocEntry[],
-    index?
+    index?: string | number | undefined
   ): DocEntry[] {
     // let newBase = base;
     if (!parent) parent = base;
