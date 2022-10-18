@@ -1,4 +1,5 @@
 // import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
+import { isArray } from 'lodash';
 import { mongo, ObjectId } from 'mongoose';
 
 import ts, {
@@ -249,6 +250,7 @@ class Doc {
   visit(node: Node, output?: Array<DocEntry>, rootDir?: string): void {
     // Only consider exported nodes
     if (!this.isNodeExported(node)) {
+      // console.log('not exported', SyntaxKind[node.kind]);
       return;
     }
 
@@ -494,39 +496,58 @@ class Doc {
     } catch (error) {
       symbol = node as unknown as ts.Symbol;
     }
-    const comments = symbol?.getDocumentationComment?.(this.checker);
+    const comments =
+      symbol?.getDocumentationComment?.(this.checker) ||
+      (node as unknown as { jsDoc: any })?.jsDoc?.map((doc: any) => ({
+        kind: 'text',
+        text: doc?.comment,
+      }));
     const text = displayPartsToString(comments);
     const documentation = {
       text,
     };
 
-    const tags = symbol?.getJsDocTags?.();
+    const tags =
+      symbol?.getJsDocTags?.() ||
+      (node as unknown as { jsDoc: any })?.jsDoc
+        ?.map((doc: any) => doc.tags)
+        ?.flat();
     if (tags)
       for (const tag of tags) {
-        const name = tag.name === 'param' ? 'parameters' : tag.name;
-        if (documentation[name] === undefined) documentation[name] = [];
-        if (tag.text)
-          if (name === 'parameters') {
-            const parameterName = tag.text.filter(
-              (p: { kind: string }) => p.kind === 'parameterName'
-            )[0].text;
-            const parameterText = tag.text
-              .filter((p: { kind: string }) => p.kind === 'text')
-              .map((p: { text: string }) => p.text.trim())
-              .filter((p: string) => p && p !== '')
-              .join(' ');
-            const doc: DocEntry = {
-              name: parameterName,
-              text: parameterText,
-            } as unknown as BaseDocEntry;
-            if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
-            if (!doc.text) documentation[name].push(parameterName);
-            else documentation[name].push(doc);
-          } else
-            documentation[name].push(
-              ...tag.text.map((x: { text: any }) => x.text)
-            );
-        else documentation[name].push(true);
+        // console.log('tag is', tag);
+        const name = tag?.name
+          ? tag.name === 'param'
+            ? 'parameters'
+            : tag.name
+          : tag?.tagName?.escapedText;
+        if (name) {
+          if (documentation[name] === undefined) documentation[name] = [];
+          const text = tag.text || tag.comment;
+          if (text)
+            if (name === 'parameters') {
+              const parameterName = text.filter(
+                (p: { kind: string }) => p.kind === 'parameterName'
+              )[0].text;
+              const parameterText = text
+                .filter((p: { kind: string }) => p.kind === 'text')
+                .map((p: { text: string }) => p.text.trim())
+                .filter((p: string) => p && p !== '')
+                .join(' ');
+              const doc: DocEntry = {
+                name: parameterName,
+                text: parameterText,
+              } as unknown as BaseDocEntry;
+              if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
+              if (!doc.text) documentation[name].push(parameterName);
+              else documentation[name].push(doc);
+            } else
+              documentation[name].push(
+                ...(Array.isArray(text)
+                  ? text.map((x: { text: any }) => x.text)
+                  : [text])
+              );
+          else documentation[name].push(true);
+        }
       }
     if (!tags || (!tags.length && !text)) return undefined;
     return documentation;

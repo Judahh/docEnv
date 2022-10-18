@@ -110,7 +110,7 @@ export {
 };
 
 /**
- * The timeout for read database requests
+ * SAMPLE
  *
  * {@label STRING_INDEXER}
  * @of anError2
