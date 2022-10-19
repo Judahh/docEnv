@@ -1,5 +1,4 @@
 // import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
-import { filter, isArray } from 'lodash';
 import { mongo, ObjectId } from 'mongoose';
 
 import ts, {
@@ -1030,4 +1029,4 @@ class Doc {
   }
 }
 
-export { Doc, DocEntry };
+export { Doc, DocEntry, BaseDocEntry, Id };

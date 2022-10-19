@@ -1,4 +1,5 @@
 import { readdir, readFile } from 'fs/promises';
+import { BaseDocEntry, DocEntry } from './doc';
 import { Extractor, Precedence } from './extractor';
 
 const baseTypes = [
@@ -60,88 +61,31 @@ class Generator {
     };
     return routes;
   }
-  public static async generateRoute(
-    path: string,
-    rRoutes?: {
-      [name: string]: {
-        path: string;
-        name: string;
-      };
-    }
-  ): Promise<{
-    [name: string]: {
-      path: string;
-      name: string;
-    };
-  }> {
-    const routes: {
-      [name: string]: {
-        path: string;
-        name: string;
-      };
-    } = rRoutes || {};
-    const file = await Generator.getFileString(path);
-    if (file.withoutComments.includes('request('))
-      return await Generator.generateRouteElement(
-        '(' + file.withoutComments.split('request(')[1].split(';')[0],
-        path,
-        routes
-      );
-    return routes;
-  }
-  public static async generateRoutes(
-    path: string,
-    files: string[],
-    rRoutes?: {
-      [name: string]: {
-        path: string;
-        name: string;
-      };
-    }
-  ): Promise<{
-    [name: string]: {
-      path: string;
-      name: string;
-    };
-  }> {
-    let routes: {
-      [name: string]: {
-        path: string;
-        name: string;
-      };
-    } = rRoutes || {};
+
+  public static async generateRoutes(path: string): Promise<Array<string>> {
+    const paths: string[] = [];
+    let files: string[] = [];
+
+    try {
+      files = await readdir(path, 'utf8');
+    } catch (error) {}
+
     for (const file of files) {
       if (file.endsWith('.ts')) {
-        routes = await Generator.generateRoute(`${path}/${file}`, routes);
+        paths.push(`${path}/${file}`);
       } else {
         const newPath = `${path}/${file}`;
-        const newfiles = await readdir(newPath, 'utf8');
-        routes = await Generator.generateRoutes(newPath, newfiles, routes);
+        paths.push(...(await Generator.generateRoutes(newPath)));
       }
     }
-    return routes;
+    return paths;
   }
 
-  public static async generatePages(
-    source: string,
-    rFiles: string[]
-  ): Promise<{
-    [name: string]: {
-      path: string;
-      name: string;
-    };
-  }> {
-    let path = source;
-    let files = rFiles;
-    if (files.includes('pages')) {
-      path += '/pages';
-      files = await readdir(path, 'utf8');
-    }
-    if (files.includes('api')) {
-      path += '/api';
-      files = await readdir(path, 'utf8');
-    }
-    return Generator.generateRoutes(path, files);
+  public static async generatePages(source: string): Promise<string[]> {
+    const paths: string[] = [];
+    paths.push(...(await Generator.generateRoutes(`${source}/${'/pages'}`)));
+    paths.push(...(await Generator.generateRoutes(`${source}/${'/api'}`)));
+    return paths;
   }
 
   static generateMethods(
@@ -260,47 +204,144 @@ class Generator {
     return pages;
   }
 
-  static async generateControllers(
+  static async getSpecificPaths(
     source: string,
-    rFiles: string[],
-    pages: {
-      [name: string]: {
-        path: string;
-        name: string;
-      };
-    }
-  ): Promise<{
-    [name: string]: {
-      path: string;
-      name: string;
-    };
-  }> {
-    let path = source;
-    let files = rFiles;
-    if (files.includes('routes')) {
-      path += '/routes';
-      files = await readdir(path, 'utf8');
-    }
-    if (files.includes('route')) {
-      path += '/route';
-      files = await readdir(path, 'utf8');
-    }
-    for (const file of files) {
-      if (file.includes('.ts')) {
-        const route = `${path}/${file}`;
-        const newPages = await Generator.findControllers(source, route, pages);
-        return newPages;
+    checkPaths?: string[]
+  ): Promise<{ files: string[]; paths: string[] }> {
+    const files: string[] = [];
+    let paths: string[] = [];
+    if (checkPaths) {
+      for (const checkPath of checkPaths) {
+        paths.push(
+          ...(await Generator.generateRoutes(`${source}/${checkPath}`))
+        );
       }
     }
-    return pages;
+
+    for (const path of paths) {
+      if (path.includes('.ts')) {
+        files.push(path);
+        paths = paths.filter((p) => p !== path);
+      }
+    }
+    return {
+      files,
+      paths,
+    };
   }
 
-  public static async generate(sourcePath: string): Promise<any> {
-    const folder = await readdir(sourcePath, 'utf8');
-    let pages = await Generator.generatePages(sourcePath, folder);
-    pages = await Generator.generateControllers(sourcePath, folder, pages);
-    pages = await Generator.generateServices(sourcePath, folder, pages);
-    return pages;
+  public static getFinalExpression(docs: DocEntry[], bodies: DocEntry[]) {
+    const bodiesContent = docs?.filter((e) =>
+      bodies.includes((e as BaseDocEntry).id)
+    );
+
+    const bodiesContentString = bodiesContent?.filter(
+      (e) => (e as BaseDocEntry)?.kind == 'StringLiteral'
+    );
+
+    if (bodiesContentString?.length) {
+      return bodiesContentString;
+    }
+
+    const argumentsFromBodiesContent = bodiesContent
+      ?.map((e) =>
+        (e as BaseDocEntry).code?.includes('request(')
+          ? ((e as BaseDocEntry).arguments as BaseDocEntry[])?.map(
+              (a) => (a && (a as BaseDocEntry)?.link) || a
+            )
+          : undefined
+      )
+      ?.flat();
+
+    const statementsFromBodiesContent = bodiesContent
+      ?.map((e) =>
+        (
+          ((e as BaseDocEntry).statements as BaseDocEntry[]) || [
+            (e as BaseDocEntry).expression as BaseDocEntry,
+          ]
+        )?.map((a) => (a && (a as BaseDocEntry)?.link) || a)
+      )
+      ?.flat();
+
+    if (docs?.length && statementsFromBodiesContent?.length) {
+      const preArguments0 = this.getFinalExpression(
+        docs,
+        argumentsFromBodiesContent
+      )?.filter((e) => e);
+
+      const preStatements0 = this.getFinalExpression(
+        docs,
+        statementsFromBodiesContent
+      )?.filter((e) => e);
+
+      const _arguments =
+        preArguments0?.filter(
+          (e) => (e as BaseDocEntry)?.kind == 'StringLiteral'
+        ) ||
+        preStatements0?.filter(
+          (e) => (e as BaseDocEntry)?.kind == 'StringLiteral'
+        );
+
+      if (_arguments?.length) return _arguments;
+
+      const statements = preStatements0;
+
+      if (statements?.length) return statements;
+    }
+    return bodiesContent;
+  }
+
+  public static getControllerName(docs: DocEntry[]) {
+    const finalExported = docs.filter(
+      (p) =>
+        (p as BaseDocEntry).kind === 'ExportAssignment' &&
+        (p as BaseDocEntry).code?.includes('(...') &&
+        (p as BaseDocEntry).code?.includes('request(')
+    );
+    // console.log('finalExported', JSON.stringify(finalExported, null, 5));
+    for (const exp of finalExported) {
+      const expressionLink =
+        ((exp as BaseDocEntry)?.expression as BaseDocEntry)?.link ||
+        (exp as BaseDocEntry).expression;
+      const expressionBody = docs
+        .filter((e) => (e as BaseDocEntry).id === expressionLink)
+        .map(
+          (e) =>
+            ((e as BaseDocEntry).body as BaseDocEntry)?.link ||
+            (e as BaseDocEntry).body
+        );
+      const ex = this.getFinalExpression(docs, expressionBody)
+        .map((e) => (e as BaseDocEntry)?.code?.replace(/['"]/g, ''))
+        .filter((e) => e);
+      console.log('ex', JSON.stringify(ex, null, 5));
+    }
+  }
+
+  public static async getPaths(sourcePath: string): Promise<{
+    pages: string[];
+    routes: string[];
+    services: string[];
+    paths: string[];
+  }> {
+    const pages = await Generator.getSpecificPaths(sourcePath, [
+      'page',
+      'pages',
+      'api',
+    ]);
+    const routes = await Generator.getSpecificPaths(sourcePath, [
+      'route',
+      'routes',
+    ]);
+    const services = await Generator.getSpecificPaths(sourcePath, [
+      'service',
+      'services',
+    ]);
+    return {
+      pages: pages.files,
+      routes: routes.files,
+      services: services.files,
+      paths: [...pages.paths, ...routes.paths, ...services.paths],
+    };
   }
 
   static async generateServices(
@@ -643,10 +684,10 @@ class Generator {
         // console.log('baseType array:', type, path, newNOString);
         return { array: type };
       } else {
-        console.trace('getFullObject', type, path);
+        // console.trace('getFullObject', type, path);
         type = await Generator.getObject(type, path, newNOString, name);
       }
-      console.trace('RESULT:', type);
+      // console.trace('RESULT:', type);
       // return isArray ? { array: type } : type;
       return type;
     }
@@ -720,7 +761,7 @@ class Generator {
     // console.log('getObject nameOrObjectString:', nameOrObjectString, path);
     // console.log('IMPORTS:', imports);
     if (nameOrObjectString != undefined) {
-      console.trace('bundler:', nameOrObjectString, name);
+      // console.trace('bundler:', nameOrObjectString, name);
       let bundled = Generator.removeSpecialCharacters(
         Extractor.bundler(
           nameOrObjectString,
@@ -733,12 +774,12 @@ class Generator {
           fileString
         )
       );
-      console.trace(
-        'bundler done:',
-        nameOrObjectString,
-        name,
-        JSON.stringify(bundled, null, 5)
-      );
+      // console.trace(
+      //   'bundler done:',
+      //   nameOrObjectString,
+      //   name,
+      //   JSON.stringify(bundled, null, 5)
+      // );
 
       if (typeof bundled !== 'string') {
         for (const key in bundled) {
@@ -821,16 +862,16 @@ class Generator {
                     ?.filter((a) => a)
                 : undefined;
             examples = examples?.length > 0 ? examples : undefined;
-            console.trace(
-              'getObject:',
-              normalizedKey,
-              descriptions,
-              examples,
-              nameOrObjectString,
-              name,
-              JSON.stringify(bundled[normalizedKey], null, 5),
-              JSON.stringify(bundled, null, 5)
-            );
+            // console.trace(
+            //   'getObject:',
+            //   normalizedKey,
+            //   descriptions,
+            //   examples,
+            //   nameOrObjectString,
+            //   name,
+            //   JSON.stringify(bundled[normalizedKey], null, 5),
+            //   JSON.stringify(bundled, null, 5)
+            // );
             // console.log(
             //   'getObject bundled[normalizedKey]:',
             //   JSON.stringify(bundled[normalizedKey], null, 5)
@@ -864,14 +905,14 @@ class Generator {
             // );
 
             if (newPath !== path) {
-              console.trace(
-                'NEW PATH:',
-                normalizedKey,
-                normalizedValue,
-                newPath,
-                JSON.stringify(bundled, null, 5),
-                key
-              );
+              // console.trace(
+              //   'NEW PATH:',
+              //   normalizedKey,
+              //   normalizedValue,
+              //   newPath,
+              //   JSON.stringify(bundled, null, 5),
+              //   key
+              // );
               normalizedValue = await Generator.getObjectString(
                 normalizedValue || normalizedKey,
                 newPath
@@ -955,13 +996,13 @@ class Generator {
         //   JSON.stringify(bundled, null, 5)
         // );
       } else {
-        console.trace(
-          'getObject bundled else:',
-          name,
-          JSON.stringify(bundled, null, 5),
-          nameOrObjectString,
-          path
-        );
+        // console.trace(
+        //   'getObject bundled else:',
+        //   name,
+        //   JSON.stringify(bundled, null, 5),
+        //   nameOrObjectString,
+        //   path
+        // );
       }
       return bundled;
     }

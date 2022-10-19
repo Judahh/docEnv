@@ -1,5 +1,6 @@
 import { Generator } from '../../source/generator';
 import { DocAPIGenerator } from '../../source/docAPIGenerator';
+import { BaseDocEntry, Doc } from '../../source/doc';
 
 // const gen0 = {
 //   path1Name: {
@@ -216,8 +217,19 @@ import { DocAPIGenerator } from '../../source/docAPIGenerator';
 
 test('Test Simple File', async () => {
   const path = './test/sampleAPI';
-  const gen = await Generator.generate(path);
-  console.log('received gen:', JSON.stringify(gen, null, 5));
-  const gen0 = await DocAPIGenerator.generate(gen);
-  console.log('received gen0:', JSON.stringify(gen0, null, 5));
+  const paths = await Generator.getPaths(path);
+  console.log('received paths:', JSON.stringify(paths, null, 5));
+  const doc = new Doc();
+  const parsed = await doc.generateDocumentation({
+    filenames: [paths.pages[0]],
+  });
+  const statements = Generator.getControllerName(parsed);
+  console.log(
+    'TypescriptParser',
+    // JSON.stringify(exported, null, 5),
+    JSON.stringify(statements, null, 5)
+  );
+  // console.log('received gen:', JSON.stringify(gen, null, 5));
+  // const gen0 = await DocAPIGenerator.generate(gen);
+  // console.log('received gen0:', JSON.stringify(gen0, null, 5));
 });
