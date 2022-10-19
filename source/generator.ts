@@ -291,8 +291,30 @@ class Generator {
     return bodiesContent;
   }
 
-  public static async getControllerClassNameFromNames(
-    filenames: string[],
+  public static async getMethodsFromControllers(
+    docs: DocEntry[],
+    controllers: DocEntry[]
+  ) {
+    // console.log('DOCS:', JSON.stringify(docs, null, 5), controllers);
+    const extendsLinks = controllers
+      .map((e) =>
+        (e as BaseDocEntry).extends?.map((e) => (e as BaseDocEntry).link || e)
+      )
+      .flat();
+    console.log('EXTENDS LINKS:', extendsLinks);
+    const _extends = docs?.filter((e) => {
+      const id = (e as BaseDocEntry).id;
+      const includes = extendsLinks.includes(id);
+      console.log('ID:', id, includes, extendsLinks);
+      return extendsLinks.includes(id);
+    });
+    console.log('EXTENDS:', _extends);
+    // console.log('DOCS:', JSON.stringify(docs, null, 5));
+    return _extends;
+  }
+
+  public static async getControllerFromNames(
+    docs: DocEntry[],
     names: string[]
   ) {
     const regNames = names.map((n) => `(?:${n})`).join('|');
@@ -300,10 +322,7 @@ class Generator {
       `this.controller\\!?\\??\\.?\\[?[\'\"\`]?${regNames}[\'\"\`]?\\]?`,
       'gm'
     );
-    const doc = new Doc();
-    const docs = await doc.generateDocumentation({
-      filenames,
-    });
+    // console.log('DOCS:', JSON.stringify(docs, null, 5));
     const controllerAssignmentIds = docs
       ?.filter(
         (e) =>
@@ -341,7 +360,7 @@ class Generator {
           ((e as BaseDocEntry).expression as BaseDocEntry)
       );
 
-    const controller = docs
+    const controllerName = docs
       ?.filter((e) =>
         controllerAssignmentInputExpressionIds.includes(
           (e as BaseDocEntry).id || (e as BaseDocEntry)
@@ -354,14 +373,17 @@ class Generator {
           (c as BaseDocEntry)
       );
 
+    const controller = docs?.filter(
+      (e) =>
+        controllerName.includes(
+          (e as BaseDocEntry).name || (e as BaseDocEntry)
+        ) && (e as BaseDocEntry).kind === 'ClassDeclaration'
+    );
+
     return controller;
   }
 
-  public static async getControllerNames(filenames: string[]) {
-    const doc = new Doc();
-    const docs = await doc.generateDocumentation({
-      filenames,
-    });
+  public static async getControllerNames(docs: DocEntry[]) {
     const finalExported = docs.filter(
       (p) =>
         (p as BaseDocEntry).kind === 'ExportAssignment' &&

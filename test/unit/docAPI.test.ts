@@ -220,11 +220,19 @@ test('Test Simple File', async () => {
   const paths = await Generator.getPaths(path);
   // extract paths and path parameters from paths->pages
   console.log('received paths:', JSON.stringify(paths, null, 5));
-  const names = await Generator.getControllerNames([paths.pages[0]]);
+  const doc = new Doc();
+  const pageDocs = await doc.generateDocumentation({
+    filenames: [paths.pages[0]],
+  });
+  const routeDocs = await doc.generateDocumentation({
+    filenames: paths.routes,
+  });
+  const names = await Generator.getControllerNames(pageDocs);
   expect(names).toEqual(['path1Name']);
-  const controllers = await Generator.getControllerClassNameFromNames(
-    paths.routes,
-    names
+  const controllers = await Generator.getControllerFromNames(routeDocs, names);
+  const methods = await Generator.getMethodsFromControllers(
+    routeDocs,
+    controllers
   );
   // get methods
   // get input and output types (from controller or service or database)
@@ -232,6 +240,7 @@ test('Test Simple File', async () => {
     'TypescriptParser',
     JSON.stringify(paths, null, 5),
     JSON.stringify(names, null, 5),
-    JSON.stringify(controllers, null, 5)
+    JSON.stringify(controllers, null, 5),
+    JSON.stringify(methods, null, 5)
   );
 });
