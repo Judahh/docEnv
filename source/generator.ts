@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'fs/promises';
-import { BaseDocEntry, DocEntry } from './doc';
+import { BaseDocEntry, Doc, DocEntry } from './doc';
 import { Extractor, Precedence } from './extractor';
 
 const baseTypes = [
@@ -291,7 +291,77 @@ class Generator {
     return bodiesContent;
   }
 
-  public static getControllerName(docs: DocEntry[]) {
+  public static async getControllerClassNameFromNames(
+    filenames: string[],
+    names: string[]
+  ) {
+    const regNames = names.map((n) => `(?:${n})`).join('|');
+    const regex = new RegExp(
+      `this.controller\\!?\\??\\.?\\[?[\'\"\`]?${regNames}[\'\"\`]?\\]?`,
+      'gm'
+    );
+    const doc = new Doc();
+    const docs = await doc.generateDocumentation({
+      filenames,
+    });
+    const controllerAssignmentIds = docs
+      ?.filter(
+        (e) =>
+          e &&
+          (e as BaseDocEntry)?.code?.match(regex) &&
+          (e as BaseDocEntry).kind === 'ExpressionStatement'
+      )
+      .map(
+        (e) =>
+          ((e as BaseDocEntry).expression as BaseDocEntry).link ||
+          ((e as BaseDocEntry).expression as BaseDocEntry)
+      );
+
+    const controllerAssignmentInputIds = docs
+      ?.filter((e) =>
+        controllerAssignmentIds.includes(
+          (e as BaseDocEntry).id || (e as BaseDocEntry)
+        )
+      )
+      .map(
+        (e) =>
+          ((e as BaseDocEntry).right as BaseDocEntry).link ||
+          ((e as BaseDocEntry).right as BaseDocEntry)
+      );
+
+    const controllerAssignmentInputExpressionIds = docs
+      ?.filter((e) =>
+        controllerAssignmentInputIds.includes(
+          (e as BaseDocEntry).id || (e as BaseDocEntry)
+        )
+      )
+      .map(
+        (e) =>
+          ((e as BaseDocEntry).expression as BaseDocEntry).link ||
+          ((e as BaseDocEntry).expression as BaseDocEntry)
+      );
+
+    const controller = docs
+      ?.filter((e) =>
+        controllerAssignmentInputExpressionIds.includes(
+          (e as BaseDocEntry).id || (e as BaseDocEntry)
+        )
+      )
+      .map(
+        (c) =>
+          (c as BaseDocEntry).name ||
+          (c as BaseDocEntry).code ||
+          (c as BaseDocEntry)
+      );
+
+    return controller;
+  }
+
+  public static async getControllerNames(filenames: string[]) {
+    const doc = new Doc();
+    const docs = await doc.generateDocumentation({
+      filenames,
+    });
     const finalExported = docs.filter(
       (p) =>
         (p as BaseDocEntry).kind === 'ExportAssignment' &&
@@ -299,6 +369,7 @@ class Generator {
         (p as BaseDocEntry).code?.includes('request(')
     );
     // console.log('finalExported', JSON.stringify(finalExported, null, 5));
+    const names: string[] = [];
     for (const exp of finalExported) {
       const expressionLink =
         ((exp as BaseDocEntry)?.expression as BaseDocEntry)?.link ||
@@ -313,8 +384,10 @@ class Generator {
       const ex = this.getFinalExpression(docs, expressionBody)
         .map((e) => (e as BaseDocEntry)?.code?.replace(/['"]/g, ''))
         .filter((e) => e);
-      console.log('ex', JSON.stringify(ex, null, 5));
+
+      names.push(...ex);
     }
+    return names;
   }
 
   public static async getPaths(sourcePath: string): Promise<{

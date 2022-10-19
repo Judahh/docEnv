@@ -218,18 +218,20 @@ import { BaseDocEntry, Doc } from '../../source/doc';
 test('Test Simple File', async () => {
   const path = './test/sampleAPI';
   const paths = await Generator.getPaths(path);
+  // extract paths and path parameters from paths->pages
   console.log('received paths:', JSON.stringify(paths, null, 5));
-  const doc = new Doc();
-  const parsed = await doc.generateDocumentation({
-    filenames: [paths.pages[0]],
-  });
-  const statements = Generator.getControllerName(parsed);
+  const names = await Generator.getControllerNames([paths.pages[0]]);
+  expect(names).toEqual(['path1Name']);
+  const controllers = await Generator.getControllerClassNameFromNames(
+    paths.routes,
+    names
+  );
+  // get methods
+  // get input and output types (from controller or service or database)
   console.log(
     'TypescriptParser',
-    // JSON.stringify(exported, null, 5),
-    JSON.stringify(statements, null, 5)
+    JSON.stringify(paths, null, 5),
+    JSON.stringify(names, null, 5),
+    JSON.stringify(controllers, null, 5)
   );
-  // console.log('received gen:', JSON.stringify(gen, null, 5));
-  // const gen0 = await DocAPIGenerator.generate(gen);
-  // console.log('received gen0:', JSON.stringify(gen0, null, 5));
 });

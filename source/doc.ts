@@ -92,6 +92,8 @@ interface BaseDocEntry {
   right?: DocEntry;
   arguments?: DocEntry[];
   statements?: DocEntry[];
+  thenStatement?: DocEntry;
+  elseStatement?: DocEntry;
   fileName?: string;
   documentation?: DocEntry;
   flags?: string;
@@ -274,6 +276,8 @@ class Doc {
       if (!doc?.typeName) delete doc.typeName;
       if (!doc?.operationName) delete doc.operationName;
       if (!doc?.expression) delete doc.expression;
+      if (!doc?.thenStatement) delete doc.thenStatement;
+      if (!doc?.elseStatement) delete doc.elseStatement;
       if (!doc?.arguments?.length) delete doc.arguments;
       if (!doc?.parameters?.length) delete doc.parameters;
       if (!doc?.statements?.length) delete doc.statements;
@@ -404,6 +408,16 @@ class Doc {
       base
     );
 
+    const thenStatement = this.serializeNode.bind(this)(
+      (node as unknown as { thenStatement: Node })?.thenStatement,
+      base
+    );
+
+    const elseStatement = this.serializeNode.bind(this)(
+      (node as unknown as { elseStatement: Node })?.elseStatement,
+      base
+    );
+
     const _extends = (
       node as unknown as { heritageClauses: { types: Node[] }[] }
     )?.heritageClauses?.map((clause) => {
@@ -454,6 +468,8 @@ class Doc {
       arguments: _arguments,
       parameters,
       statements,
+      thenStatement,
+      elseStatement,
       modifiers,
       kind: SyntaxKind[node.kind],
       documentation,
@@ -462,6 +478,13 @@ class Doc {
     };
 
     // console.log('entry is', JSON.stringify(entry, null, 5));
+    // if (
+    //   entry.kind === 'IfStatement' &&
+    //   entry.code ===
+    //     'if (!this.controller.path1Name)\n      this.controller.path1Name = new AController(initDefault);'
+    // ) {
+    //   console.log('entry is', node);
+    // }
 
     entry = this.refactorDocumentations.bind(this)(entry, base) as BaseDocEntry;
 
@@ -471,6 +494,16 @@ class Doc {
     entry.right = this.linkObject.bind(this)(entry, base, 'right');
     entry.body = this.linkObject.bind(this)(entry, base, 'body');
     entry.expression = this.linkObject.bind(this)(entry, base, 'expression');
+    entry.thenStatement = this.linkObject.bind(this)(
+      entry,
+      base,
+      'thenStatement'
+    );
+    entry.elseStatement = this.linkObject.bind(this)(
+      entry,
+      base,
+      'elseStatement'
+    );
 
     entry.extends = this.linkArray.bind(this)(entry, base, 'extends');
     entry.members = this.linkArray.bind(this)(entry, base, 'members');
