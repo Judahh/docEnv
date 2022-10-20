@@ -113,6 +113,18 @@ interface BaseDocEntry {
 
 type DocEntry = BaseDocEntry | string | Id | undefined;
 
+type BaseDocNode = Node & {
+  name?: BaseDocNode;
+  kind?: SyntaxKind | string;
+  text?: BaseDocNode | BaseDocNode[] | string | string[];
+  comment?: BaseDocNode;
+  escapedText?: BaseDocNode;
+  left?: BaseDocNode;
+  right?: BaseDocNode;
+};
+
+type DocNode = BaseDocNode | string;
+
 export const caller = async <T>(
   // eslint-disable-next-line no-unused-vars
   toCall: (...args) => unknown,
@@ -563,6 +575,59 @@ class Doc {
     return cleaned;
   }
 
+  addDocumentation(tag: BaseDocNode, name: DocNode, documentation) {
+    if (name) {
+      const base = name as BaseDocNode;
+      const newName = (base?.name ||
+        base?.text ||
+        base?.escapedText ||
+        base?.left?.name ||
+        base?.left?.text ||
+        base?.left?.escapedText ||
+        name) as unknown as string;
+      const text = tag?.text || tag?.comment;
+      // if (typeof newName == 'object' || newName == '[object Object]') {
+      //   console.log('newName is', newName);
+      // }
+      if (base?.right) {
+        documentation[newName] =
+          documentation[newName] == undefined ? {} : documentation[newName];
+        const right = base?.right;
+        this.addDocumentation.bind(this)(tag, right, documentation[newName]);
+      }
+      // console.log('object name is', newName, documentation);
+      if (typeof newName != 'object' || newName != '[object Object]') {
+        if (documentation[newName] === undefined) documentation[newName] = [];
+        if (text)
+          if (newName === 'parameters') {
+            const parameterName = (text as unknown as BaseDocNode[]).filter(
+              (p) => typeof p.kind === 'string' && p.kind === 'parameterName'
+            )[0].text;
+            const parameterText = (text as unknown as BaseDocNode[])
+              .filter((p) => typeof p.kind === 'string' && p.kind === 'text')
+              .map((p) => typeof p.text === 'string' && p?.text?.trim())
+              .filter((p) => p && p !== '')
+              .join(' ');
+            const doc: DocEntry = {
+              name: parameterName,
+              text: parameterText,
+            } as unknown as BaseDocEntry;
+            // console.log('Add doc', JSON.stringify(doc, null, 5));
+            if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
+            if (!doc.text) documentation[newName].push(parameterName);
+            else documentation[newName].push(doc);
+          } else {
+            console.log('newName is', newName, documentation);
+            documentation[newName].push(
+              ...(Array.isArray(text) ? text.map((x) => x.text) : [text])
+            );
+            console.log('newName was', newName, documentation);
+          }
+        else documentation[newName].push(true);
+      }
+    }
+  }
+
   serializeDocumentation(node?: Node) {
     if (node == undefined) return undefined;
     let symbol: ts.Symbol | undefined;
@@ -595,36 +660,10 @@ class Doc {
             ? 'parameters'
             : tag.name
           : tag?.tagName?.escapedText;
-        if (name) {
-          if (documentation[name] === undefined) documentation[name] = [];
-          const text = tag.text || tag.comment;
-          if (text)
-            if (name === 'parameters') {
-              const parameterName = text.filter(
-                (p: { kind: string }) => p.kind === 'parameterName'
-              )[0].text;
-              const parameterText = text
-                .filter((p: { kind: string }) => p.kind === 'text')
-                .map((p: { text: string }) => p.text.trim())
-                .filter((p: string) => p && p !== '')
-                .join(' ');
-              const doc: DocEntry = {
-                name: parameterName,
-                text: parameterText,
-              } as unknown as BaseDocEntry;
-              if (doc?.text?.[0] === '-') doc.text = doc.text.slice(1).trim();
-              if (!doc.text) documentation[name].push(parameterName);
-              else documentation[name].push(doc);
-            } else
-              documentation[name].push(
-                ...(Array.isArray(text)
-                  ? text.map((x: { text: any }) => x.text)
-                  : [text])
-              );
-          else documentation[name].push(true);
-        }
+        this.addDocumentation.bind(this)(tag, name, documentation);
       }
     if (!tags || (!tags.length && !text)) return undefined;
+    console.log('documentation is', JSON.stringify(documentation, null, 5));
     return documentation;
   }
 
