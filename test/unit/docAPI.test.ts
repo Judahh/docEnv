@@ -230,9 +230,12 @@ test('Test Simple File', async () => {
   const handlerDocs = await doc.generateDocumentation({
     filenames: paths.handlers,
   });
-  const names = await Generator.getControllerNames(pageDocs);
-  expect(names).toEqual(['path1Name']);
-  const controllers = await Generator.getControllerFromNames(routeDocs, names);
+  const pageNames = await Generator.getControllerNames(pageDocs);
+  expect(pageNames).toEqual(['path1Name']);
+  const controllers = await Generator.getControllerFromNames(
+    routeDocs,
+    pageNames
+  );
   const methods = await Generator.getMethodsFromControllers(
     routeDocs,
     controllers
@@ -240,14 +243,32 @@ test('Test Simple File', async () => {
   const handlers = await Generator.getHandlers(handlerDocs);
   // get methods
   // get input and output types (from controller or service or database)
+  const serviceNames = controllers.map((controller) => {
+    const name =
+      (controller as BaseDocEntry)?.name?.replace(
+        'Controller',
+        handlers[0].suffix
+      ) || '';
+    const fileName = name[0].toLowerCase() + name.slice(1) + '.ts';
+    const type = handlers[0].type;
+    return { name, fileName, type };
+  });
+  const service = paths[serviceNames[0].type].find((service) =>
+    service.includes('/' + serviceNames[0].fileName)
+  );
+  const serviceDocs = await doc.generateDocumentation({
+    filenames: [service],
+  });
   console.log(
     'TypescriptParser',
     JSON.stringify(paths, null, 5),
-    JSON.stringify(names, null, 5),
+    JSON.stringify(pageNames, null, 5),
     JSON.stringify(controllers, null, 5),
     JSON.stringify(methods, null, 5),
-    JSON.stringify(handlers, null, 5)
+    JSON.stringify(handlers, null, 5),
+    JSON.stringify(serviceNames, null, 5),
+    JSON.stringify(service, null, 5)
   );
 
-  // console.log('DOCS', JSON.stringify(handlerDocs, null, 5));
+  console.log('DOCS', JSON.stringify(serviceDocs, null, 5));
 });

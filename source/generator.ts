@@ -565,9 +565,11 @@ class Generator {
           : type?.includes('persistence')
           ? 'schemas'
           : 'services';
+        const suffix = type === 'dAOs' ? 'DAO' : type === 'schemas' ? 'Schema' : 'Service';
         return {
           name,
           type,
+          suffix,
         };
       });
 
