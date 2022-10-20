@@ -84,12 +84,13 @@ interface BaseDocEntry {
   body?: DocEntry;
   expression?: DocEntry;
   initializer?: DocEntry;
-  declaration?: DocEntry;
+  declarations?: DocEntry[];
   operator?: string;
   operation?: Operation;
   operationName?: string;
   left?: DocEntry;
   right?: DocEntry;
+  flow?: DocEntry;
   arguments?: DocEntry[];
   statements?: DocEntry[];
   thenStatement?: DocEntry;
@@ -100,6 +101,7 @@ interface BaseDocEntry {
   type?: DocEntry;
   typeName?: string;
   kind?: DocEntry;
+  properties?: DocEntry[];
   types?: DocEntry[];
   signatures?: DocEntry[];
   implements?: DocEntry[];
@@ -170,7 +172,8 @@ class Doc {
       extends?: string;
       filenames?: string[];
     },
-    currentDir?: string
+    currentDir?: string,
+    depth = 15
   ): Promise<DocEntry[]> {
     const { options, fileNames, rootDir } = this.getOptions(
       override,
@@ -184,7 +187,7 @@ class Doc {
     this.checker = program.getTypeChecker();
     let output: DocEntry[] = [];
 
-    const visit = (node: Node) => this.visit(node, output, rootDir);
+    const visit = (node: Node) => this.visit(node, output, rootDir, depth);
 
     // Visit every sourceFile in the program
     for (const sourceFile of program.getSourceFiles()) {
@@ -250,17 +253,24 @@ class Doc {
   }
 
   /** visit nodes finding exported classes */
-  visit(node: Node, output?: Array<DocEntry>, rootDir?: string): void {
+  visit(
+    node: Node,
+    output?: Array<DocEntry>,
+    rootDir?: string,
+    depth = 15
+  ): void {
     // Only consider exported nodes
     if (!this.isNodeExported(node)) {
       // console.log('not exported', SyntaxKind[node.kind]);
       return;
     }
 
-    const newNode = this.serializeNode(node, output);
+    const newNode = this.serializeNode(node, output, depth);
 
     output?.push(newNode);
-    forEachChild(node, (node) => this.visit.bind(this)(node, output, rootDir));
+    forEachChild(node, (node) =>
+      this.visit.bind(this)(node, output, rootDir, depth - 1)
+    );
   }
 
   cleanUp(doc: DocEntry) {
@@ -273,17 +283,19 @@ class Doc {
       if (!doc?.name) delete doc.name;
       if (!doc?.code || doc.code.trim() === '') delete doc.code;
       if (!doc?.body) delete doc.body;
+      if (!doc?.flow) delete doc.flow;
       if (!doc?.typeName) delete doc.typeName;
       if (!doc?.operationName) delete doc.operationName;
       if (!doc?.expression) delete doc.expression;
       if (!doc?.thenStatement) delete doc.thenStatement;
       if (!doc?.elseStatement) delete doc.elseStatement;
+      if (!doc?.properties?.length) delete doc.properties;
       if (!doc?.arguments?.length) delete doc.arguments;
       if (!doc?.parameters?.length) delete doc.parameters;
       if (!doc?.statements?.length) delete doc.statements;
       if (!doc?.modifiers?.length) delete doc.modifiers;
       if (!doc?.initializer) delete doc.initializer;
-      if (!doc?.declaration) delete doc.declaration;
+      if (!doc?.declarations?.length) delete doc.declarations;
       if (!doc?.operator) {
         delete doc.operator;
         delete doc.operation;
@@ -314,8 +326,8 @@ class Doc {
     return doc;
   }
 
-  serializeNode(node?: Node, base?: DocEntry[]): DocEntry {
-    if (node == undefined) return undefined;
+  serializeNode(node?: Node, base?: DocEntry[], depth?: number): DocEntry {
+    if (node == undefined || !depth) return undefined;
 
     const tempKind = (node as unknown as { type: Node })?.type?.kind;
 
@@ -354,7 +366,7 @@ class Doc {
       node as unknown as { name: { escapedText: string } }
     )?.name?.escapedText?.toString();
 
-    const code = node?.getText();
+    const code = node?.getText?.();
     const operatorValue = (node as unknown as { operatorToken: Node })
       ?.operatorToken?.kind;
     const operator = SyntaxKind[operatorValue];
@@ -373,82 +385,108 @@ class Doc {
         (node as unknown as { name: Node })?.name
       );
 
-    const declaration = this.serializeNode.bind(this)(
-      (node as unknown as { declarationList: { declarations: Node[] } })
-        ?.declarationList?.declarations?.[0],
-      base
-    );
-
-    if (name == undefined && typeof declaration == 'object') {
-      name = (declaration as BaseDocEntry)?.name;
-    }
-
     const initializer = this.serializeNode.bind(this)(
       (node as unknown as { initializer: Node })?.initializer,
-      base
+      base,
+      depth - 1
     );
 
     const left = this.serializeNode.bind(this)(
       (node as unknown as { left: Node })?.left,
-      base
+      base,
+      depth - 1
     );
 
     const right = this.serializeNode.bind(this)(
       (node as unknown as { right: Node })?.right,
-      base
+      base,
+      depth - 1
     );
 
     const body = this.serializeNode.bind(this)(
       (node as unknown as { body: Node })?.body,
-      base
+      base,
+      depth - 1
     );
 
     const expression = this.serializeNode.bind(this)(
       (node as unknown as { expression: Node })?.expression,
-      base
+      base,
+      depth - 1
     );
 
     const thenStatement = this.serializeNode.bind(this)(
       (node as unknown as { thenStatement: Node })?.thenStatement,
-      base
+      base,
+      depth - 1
     );
 
     const elseStatement = this.serializeNode.bind(this)(
       (node as unknown as { elseStatement: Node })?.elseStatement,
-      base
+      base,
+      depth - 1
     );
+
+    const flow = this.serializeNode.bind(this)(
+      (node as unknown as { flowNode: { node: Node } })?.flowNode?.node,
+      base,
+      depth - 1
+    );
+
+    let declarations = (
+      node as unknown as { declarationList?: { declarations: Node[] } }
+    )?.declarationList?.declarations.map((value: Node | undefined) =>
+      this.serializeNode.bind(this)(value, base, depth - 1)
+    );
+
+    if (name == undefined && typeof declarations?.[0] == 'object') {
+      name = (declarations?.[0] as BaseDocEntry)?.name;
+    }
 
     const _extends = (
       node as unknown as { heritageClauses: { types: Node[] }[] }
     )?.heritageClauses?.map((clause) => {
       return clause.types.map((type: Node | undefined) => {
-        return this.serializeNode.bind(this)(type, base);
+        return this.serializeNode.bind(this)(type, base, depth - 1);
       });
     });
 
     const members: DocEntry[] = (
       node as unknown as { members: Node[] }
     )?.members?.map((value: Node | undefined) =>
-      this.serializeNode.bind(this)(value, base)
+      this.serializeNode.bind(this)(value, base, depth - 1)
     );
 
     const parameters: DocEntry[] = (
       node as unknown as { parameters: Node[] }
     )?.parameters?.map((value: Node | undefined) =>
-      this.serializeNode.bind(this)(value, base)
+      this.serializeNode.bind(this)(value, base, depth - 1)
     );
 
     const statements: DocEntry[] = (
       node as unknown as { statements: Node[] }
     )?.statements?.map((value: Node | undefined) =>
-      this.serializeNode.bind(this)(value, base)
+      this.serializeNode.bind(this)(value, base, depth - 1)
+    );
+
+    const properties: DocEntry[] = (
+      node as unknown as { properties: Node[] }
+    )?.properties?.map((value: Node | undefined) =>
+      this.serializeNode.bind(this)(value, base, depth - 1)
     );
 
     const _arguments = (
       node as unknown as { arguments: Node[] }
     )?.arguments?.map((argument: Node | undefined) => {
-      return this.serializeNode.bind(this)(argument, base);
+      return this.serializeNode.bind(this)(argument, base, depth - 1);
     });
+
+    if (SyntaxKind[node.kind] === 'Identifier' && declarations == undefined) {
+      const symbol = this.checker?.getSymbolAtLocation?.(node);
+      declarations = symbol?.declarations?.map((value: Node | undefined) =>
+        this.serializeNode.bind(this)(value, base, depth - 1)
+      );
+    }
 
     let entry: DocEntry = {
       id: id != undefined ? id : newId(),
@@ -458,14 +496,16 @@ class Doc {
       type,
       typeName,
       initializer,
-      declaration,
+      declarations,
       operator,
       operation,
       operationName,
       left,
       right,
       expression,
+      flow,
       arguments: _arguments,
+      properties,
       parameters,
       statements,
       thenStatement,
@@ -479,16 +519,15 @@ class Doc {
 
     // console.log('entry is', JSON.stringify(entry, null, 5));
     // if (
-    //   entry.kind === 'IfStatement' &&
-    //   entry.code ===
-    //     'if (!this.controller.path1Name)\n      this.controller.path1Name = new AController(initDefault);'
+    //   // entry?.kind === 'Identifier' &&
+    //   entry.id === 433
     // ) {
     //   console.log('entry is', node);
     // }
 
     entry = this.refactorDocumentations.bind(this)(entry, base) as BaseDocEntry;
 
-    entry.declaration = this.linkObject.bind(this)(entry, base, 'declaration');
+    entry.flow = this.linkObject.bind(this)(entry, base, 'flow');
     entry.initializer = this.linkObject.bind(this)(entry, base, 'initializer');
     entry.left = this.linkObject.bind(this)(entry, base, 'left');
     entry.right = this.linkObject.bind(this)(entry, base, 'right');
@@ -505,6 +544,8 @@ class Doc {
       'elseStatement'
     );
 
+    entry.declarations = this.linkArray.bind(this)(entry, base, 'declarations');
+    entry.properties = this.linkArray.bind(this)(entry, base, 'properties');
     entry.extends = this.linkArray.bind(this)(entry, base, 'extends');
     entry.members = this.linkArray.bind(this)(entry, base, 'members');
     entry.parameters = this.linkArray.bind(this)(entry, base, 'parameters');
@@ -621,6 +662,7 @@ class Doc {
     parent = this.toObject(parent);
     let p = parent[index];
     p = index2 != undefined ? p[index2] : p;
+    if (p == undefined) return undefined;
     let newObject = this.toObject(JSON.parse(JSON.stringify(p)));
     const foundIndex = base?.findIndex((x) => {
       const nX = this.toObject(JSON.parse(JSON.stringify(x)));

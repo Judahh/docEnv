@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'fs/promises';
-import { BaseDocEntry, Doc, DocEntry } from './doc';
+import { BaseDocEntry, Doc, DocEntry, Id } from './doc';
 import { Extractor, Precedence } from './extractor';
 
 const baseTypes = [
@@ -15,6 +15,13 @@ const baseTypes = [
   'object',
   'symbol',
 ];
+
+const controllerMethods = {
+  create: ['post'],
+  read: ['get'],
+  update: ['put', 'patch'],
+  delete: ['delete'],
+};
 
 class Generator {
   public static removeComments(content: string) {
@@ -291,6 +298,31 @@ class Generator {
     return bodiesContent;
   }
 
+  public static getControllerExpression(docs: DocEntry[], current: DocEntry[]) {
+    const extension = current?.map((e) => {
+      const links = (e as BaseDocEntry)?.arguments
+        ? ((e as BaseDocEntry)?.arguments as BaseDocEntry[])
+            ?.map((a) => (a && (a as BaseDocEntry)?.link) || a)
+            .filter((a) => a)
+        : [((e as BaseDocEntry)?.expression as BaseDocEntry)?.link].filter(
+            (a) => a
+          );
+
+      const next = docs.filter((p) =>
+        links.includes((p as BaseDocEntry)?.id || (p as string))
+      );
+
+      // console.log('NEXT:', links, JSON.stringify(next, null, 5));
+
+      return (e as BaseDocEntry)?.code?.includes('Mixin') ||
+        ((e as BaseDocEntry)?.code?.includes('Controller') && next?.length)
+        ? this.getControllerExpression(docs, next).flat()
+        : e;
+    });
+    // console.log('GET EXTENSION:', JSON.stringify(extension, null, 5));
+    return extension.flat();
+  }
+
   public static async getMethodsFromControllers(
     docs: DocEntry[],
     controllers: DocEntry[]
@@ -301,16 +333,26 @@ class Generator {
         (e as BaseDocEntry).extends?.map((e) => (e as BaseDocEntry).link || e)
       )
       .flat();
-    console.log('EXTENDS LINKS:', extendsLinks);
+    // console.log('EXTENDS LINKS:', extendsLinks);
     const _extends = docs?.filter((e) => {
       const id = (e as BaseDocEntry).id;
       const includes = extendsLinks.includes(id);
-      console.log('ID:', id, includes, extendsLinks);
-      return extendsLinks.includes(id);
+      // console.log('ID:', id, includes, extendsLinks);
+      return includes;
     });
-    console.log('EXTENDS:', _extends);
+    const extension = this.getControllerExpression(docs, _extends).map((e) => ({
+      name: (e as BaseDocEntry).code,
+      id: (e as BaseDocEntry).id,
+      type: (e as BaseDocEntry)?.code?.split('Controller')[1].toLowerCase(),
+      methods:
+        controllerMethods[
+          (e as BaseDocEntry)?.code?.split('Controller')?.[1]?.toLowerCase() ||
+            'read'
+        ],
+    }));
+    // console.log('EXTENDS:', extension);
     // console.log('DOCS:', JSON.stringify(docs, null, 5));
-    return _extends;
+    return extension;
   }
 
   public static async getControllerFromNames(
@@ -383,6 +425,155 @@ class Generator {
     return controller;
   }
 
+  public static getHandlerExpression(docs: DocEntry[], current: DocEntry[]) {
+    const extension = current?.map((e) => {
+      const links = (e as BaseDocEntry)?.properties
+        ? ((e as BaseDocEntry)?.properties as BaseDocEntry[])
+            ?.map((a) => (a && (a as BaseDocEntry)?.link) || a)
+            .filter((a) => a)
+        : (e as BaseDocEntry)?.arguments
+        ? ((e as BaseDocEntry)?.arguments as BaseDocEntry[])
+            ?.map((a) => (a && (a as BaseDocEntry)?.link) || a)
+            .filter((a) => a)
+        : [((e as BaseDocEntry)?.expression as BaseDocEntry)?.link].filter(
+            (a) => a
+          );
+
+      const next = docs.filter((p) =>
+        links.includes((p as BaseDocEntry)?.id || (p as string))
+      );
+
+      // console.log('NEXT:', links, JSON.stringify(next, null, 5));
+
+      return next?.length ? this.getHandlerExpression(docs, next).flat() : e;
+    });
+    // console.log('GET EXTENSION:', JSON.stringify(extension, null, 5));
+    return extension.flat();
+  }
+
+  public static getHandlersFlow(docs: DocEntry[], current: DocEntry[]) {
+    // console.log('CURRENT:', JSON.stringify(current, null, 5));
+    const initializer = docs.filter((d) =>
+      current
+        .map((e) => ((e as BaseDocEntry)?.initializer as BaseDocEntry)?.link)
+        ?.includes((d as BaseDocEntry)?.id || (d as unknown as Id))
+    );
+
+    // console.log('INIT:', JSON.stringify(initializer, null, 5));
+
+    const flow = docs.filter((d) =>
+      initializer
+        .map((e) => ((e as BaseDocEntry)?.flow as BaseDocEntry)?.link)
+        ?.includes((d as BaseDocEntry)?.id || (d as unknown as Id))
+    );
+
+    // console.log('FLOW:', JSON.stringify(flow, null, 5));
+    if (!flow?.length) {
+      return initializer;
+    }
+
+    const next = flow
+      .map((d) =>
+        ((d as BaseDocEntry)?.initializer as BaseDocEntry) ? d : undefined
+      )
+      .filter((d) => d)
+      .flat();
+
+    if (next?.length) {
+      // console.log('NEXT:', JSON.stringify(next, null, 5));
+      return this.getHandlersFlow(docs, next);
+    }
+
+    if (flow?.length) {
+      // console.log('FLOW:', JSON.stringify(flow, null, 5));
+      return flow;
+    }
+
+    return current;
+  }
+
+  public static async getHandlers(docs: DocEntry[]) {
+    const _exports = docs?.filter((e) =>
+      ((e as BaseDocEntry)?.kind as string)?.includes('ExportAssignment')
+    );
+    const expression = this.getHandlerExpression(docs, _exports).filter(
+      (a) => a.name === 'handler'
+    );
+    const initializer = this.getHandlersFlow(docs, expression);
+
+    // console.log('INIT:', JSON.stringify(initializer, null, 5));
+
+    const read = docs.filter((d) =>
+      initializer
+        .map((a) => a.arguments[1].link || a.arguments[1])
+        .includes((d as BaseDocEntry)?.id || (d as unknown as Id))
+    );
+
+    // console.log('READ:', JSON.stringify(read, null, 5));
+
+    const readInitializerIds = docs
+      .filter((d) =>
+        read
+          .map(
+            (a) =>
+              (a as BaseDocEntry)?.declarations?.map(
+                (b) => (b as BaseDocEntry).link || b
+              ) || a
+          )
+          .flat()
+          .filter((a) => a)
+          .includes((d as BaseDocEntry)?.id || (d as unknown as Id))
+      )
+      .map(
+        (a) =>
+          (
+            ((a as BaseDocEntry)?.initializer as BaseDocEntry)
+              ?.link as BaseDocEntry
+          )?.id ||
+          ((a as BaseDocEntry)?.initializer as BaseDocEntry)?.link ||
+          (a as BaseDocEntry)?.initializer
+      );
+
+    const readExpressionIds = docs
+      .filter((d) =>
+        readInitializerIds.includes(
+          (d as BaseDocEntry)?.id || (d as unknown as Id)
+        )
+      )
+      .map(
+        (a) =>
+          (
+            ((a as BaseDocEntry)?.expression as BaseDocEntry)
+              ?.link as BaseDocEntry
+          )?.id ||
+          ((a as BaseDocEntry)?.expression as BaseDocEntry)?.link ||
+          (a as BaseDocEntry)?.expression
+      );
+
+    const readExpression = docs
+      .filter((d) =>
+        readExpressionIds.includes(
+          (d as BaseDocEntry)?.id || (d as unknown as Id)
+        )
+      )
+      .map((a) => {
+        const name =
+          (a as BaseDocEntry).name || (a as BaseDocEntry).code || (a as string);
+        let type = name?.toLowerCase();
+        type = type?.includes('dao')
+          ? 'dAOs'
+          : type?.includes('persistence')
+          ? 'schemas'
+          : 'services';
+        return {
+          name,
+          type,
+        };
+      });
+
+    return readExpression;
+  }
+
   public static async getControllerNames(docs: DocEntry[]) {
     const finalExported = docs.filter(
       (p) =>
@@ -416,6 +607,12 @@ class Generator {
     pages: string[];
     routes: string[];
     services: string[];
+    schemas: string[];
+    dAOs: string[];
+    controllers: string[];
+    models: string[];
+    configs: string[];
+    handlers: string[];
     paths: string[];
   }> {
     const pages = await Generator.getSpecificPaths(sourcePath, [
@@ -431,10 +628,71 @@ class Generator {
       'service',
       'services',
     ]);
+
+    const schemas = await Generator.getSpecificPaths(sourcePath, [
+      'schema',
+      'schemas',
+      'database',
+      'databases',
+    ]);
+
+    const dAOs = await Generator.getSpecificPaths(sourcePath, [
+      'dAO',
+      'dAOs',
+      'dao',
+      'daos',
+    ]);
+
+    const controllers = await Generator.getSpecificPaths(sourcePath, [
+      'controller',
+      'controllers',
+    ]);
+
+    const models = await Generator.getSpecificPaths(sourcePath, [
+      'model',
+      'models',
+    ]);
+
+    const configs = await Generator.getSpecificPaths(sourcePath, [
+      'config',
+      'configs',
+    ]);
+
+    let baseFiles: string[] = [];
+    try {
+      baseFiles = (await readdir(sourcePath, 'utf8')).map(
+        (e) => `${sourcePath}/${e}`
+      );
+    } catch (error) {}
+    const handlers = [
+      ...(
+        await Generator.getSpecificPaths(sourcePath, [
+          'dbHandler',
+          'dBHandler',
+          'DBHandler',
+          'databaseHandler',
+          'dbHandlers',
+          'dBHandlers',
+          'DBHandlers',
+          'databaseHandlers',
+          'handler',
+          'handlers',
+        ])
+      ).files,
+      ...baseFiles.filter(
+        (f) => f.includes('Handler') || f.includes('handler')
+      ),
+    ];
     return {
       pages: pages.files,
       routes: routes.files,
       services: services.files,
+      schemas: schemas.files,
+      dAOs: dAOs.files,
+      controllers: controllers.files,
+      models: models.files,
+      configs: configs.files,
+      handlers: handlers,
       paths: [...pages.paths, ...routes.paths, ...services.paths],
     };
   }

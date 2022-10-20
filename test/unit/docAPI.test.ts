@@ -219,13 +219,16 @@ test('Test Simple File', async () => {
   const path = './test/sampleAPI';
   const paths = await Generator.getPaths(path);
   // extract paths and path parameters from paths->pages
-  console.log('received paths:', JSON.stringify(paths, null, 5));
+  // console.log('received paths:', JSON.stringify(paths, null, 5));
   const doc = new Doc();
   const pageDocs = await doc.generateDocumentation({
     filenames: [paths.pages[0]],
   });
   const routeDocs = await doc.generateDocumentation({
     filenames: paths.routes,
+  });
+  const handlerDocs = await doc.generateDocumentation({
+    filenames: paths.handlers,
   });
   const names = await Generator.getControllerNames(pageDocs);
   expect(names).toEqual(['path1Name']);
@@ -234,6 +237,7 @@ test('Test Simple File', async () => {
     routeDocs,
     controllers
   );
+  const handlers = await Generator.getHandlers(handlerDocs);
   // get methods
   // get input and output types (from controller or service or database)
   console.log(
@@ -241,6 +245,9 @@ test('Test Simple File', async () => {
     JSON.stringify(paths, null, 5),
     JSON.stringify(names, null, 5),
     JSON.stringify(controllers, null, 5),
-    JSON.stringify(methods, null, 5)
+    JSON.stringify(methods, null, 5),
+    JSON.stringify(handlers, null, 5)
   );
+
+  // console.log('DOCS', JSON.stringify(handlerDocs, null, 5));
 });
