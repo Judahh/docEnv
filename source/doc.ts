@@ -788,7 +788,7 @@ class Doc {
   }
 
   toDocumentation(doc: SimpleDocumentationEntry): DocumentationEntry {
-    console.log('doc was', JSON.stringify(doc, null, 5));
+    // console.log('doc was', JSON.stringify(doc, null, 5));
     const newDoc: DocumentationEntry = {};
     if (Array.isArray(doc.value)) {
       let children = doc?.value?.map((x) => this.toDocumentation.bind(this)(x));
@@ -885,7 +885,7 @@ class Doc {
       // console.log('doc.elements is', JSON.stringify(elements, null, 5));
       newDoc.elements = elements.map((x) => this.toDocumentation.bind(this)(x));
     }
-    console.log('doc is', JSON.stringify(newDoc, null, 5));
+    // console.log('doc is', JSON.stringify(newDoc, null, 5));
     return newDoc;
   }
 
@@ -940,8 +940,8 @@ class Doc {
         const parameterParents = parameter?.elements?.filter(
           (x) => x.kind === 'left'
         ) as DocumentationEntry[];
-        const foundParents = others?.filter(
-          (x) => parameterParents?.find((y) => y.name === x.name) //! use id
+        const foundParents = others?.filter((x) =>
+          parameterParents?.find((y) => y.id === x.id)
         );
         // console.log('FOUND:', foundParents);
         if (foundParents?.length) {
