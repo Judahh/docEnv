@@ -1,4 +1,5 @@
 // import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
+import { flatMap } from 'lodash';
 import { mongo, ObjectId } from 'mongoose';
 
 import ts, {
@@ -72,13 +73,12 @@ type Id = ObjectId | string | number;
 
 interface DocumentationEntry {
   id?: string | number;
-  element?: DocumentationElement;
+  kind?: string;
   name?: string | number | boolean;
   value?: string | number | boolean;
-  parameters?: {
-    [key: string]: DocumentationEntry[];
-  };
-  children?: DocumentationEntry[];
+  parameters?: DocumentationEntry[];
+  elements?: DocumentationEntry[];
+  variations?: DocumentationEntry[];
 }
 
 interface DocumentationElement {
@@ -90,7 +90,7 @@ interface DocumentationElement {
 
 interface SimpleDocumentationEntry {
   id?: string | number;
-  element?: DocumentationElement;
+  elements?: DocumentationElement[];
   kind?: string;
   name?: string;
   value?: boolean | number | string | SimpleDocumentationEntry[];
@@ -399,6 +399,7 @@ class Doc {
     } catch (error) {
       id = (node as unknown as { id: Id })?.id;
     }
+    id = id != undefined ? id : newId();
 
     let name: string | undefined = (
       node as unknown as { name: { escapedText: string } }
@@ -417,11 +418,10 @@ class Doc {
         })
       : undefined;
 
+    node['id'] = node['id'] || id;
+
     const documentation = this.reduceDocumentation.bind(this)(
-      this.serializeDocumentation.bind(this)(node) ||
-        this.serializeDocumentation.bind(this)(
-          (node as unknown as { name: Node })?.name
-        )
+      this.serializeDocumentation.bind(this)(node)
     );
     // if (documentation)
     //   console.log('f documentation', JSON.stringify(documentation, null, 5));
@@ -531,7 +531,7 @@ class Doc {
 
     // eslint-disable-next-line prefer-const
     let entry: DocEntry = {
-      id: id != undefined ? id : newId(),
+      id,
       name,
       code,
       body,
@@ -733,7 +733,7 @@ class Doc {
     return r;
   }
 
-  toSimpleDocumentation(doc): SimpleDocumentationEntry {
+  toSimpleDocumentation(doc, id?: number | string): SimpleDocumentationEntry {
     // console.log('simple doc was', doc);
     let kind = doc?.kind
       ? SyntaxKind[doc?.kind] || doc?.kind
@@ -748,7 +748,7 @@ class Doc {
     let value = doc?.comment || doc?.text || true;
     if (Array.isArray(value)) {
       kind = 'documentation';
-      value = value.map((x) => this.toSimpleDocumentation.bind(this)(x));
+      value = value.map((x) => this.toSimpleDocumentation.bind(this)(x, id));
     }
     const newDoc: SimpleDocumentationEntry = {
       kind,
@@ -760,19 +760,26 @@ class Doc {
     }
 
     if (typeof newDoc.name === 'object') {
+      if (newDoc.name['left'] && typeof newDoc.name['left'] === 'object') {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        newDoc.name['left']['id'] = newDoc['id'] || id;
+      }
+      // console.log('newDoc.name is', id, newDoc.name);
+
       const element = this.getDocumentationElement(newDoc.name);
       newDoc.id = element.id;
       newDoc.name = element.name;
-      newDoc.element = element;
-    }
+      newDoc.elements = element.elements;
 
-    // console.log('simple doc is', JSON.stringify(newDoc, null, 5));
+      // console.log('simple doc is', JSON.stringify(newDoc, null, 5));
+    }
 
     return newDoc;
   }
 
   toDocumentation(doc: SimpleDocumentationEntry): DocumentationEntry {
-    // console.log('doc was', doc);
+    // console.log('doc was', JSON.stringify(doc, null, 5));
     const newDoc: DocumentationEntry = {};
     if (Array.isArray(doc.value)) {
       let children = doc?.value?.map((x) => this.toDocumentation.bind(this)(x));
@@ -799,15 +806,6 @@ class Doc {
         )
         ?.filter((x) => x);
 
-      let pName;
-      for (const parameter of parameters) {
-        // console.log('parameter is', parameter);
-        newDoc.parameters = newDoc.parameters || {};
-        pName = pName || parameter.name;
-        if (!pName) continue;
-        newDoc.parameters[pName] = newDoc.parameters[pName] || [];
-        break;
-      }
       const parameter = {};
       for (const parameterP of parameters) {
         for (const key in parameterP) {
@@ -823,33 +821,58 @@ class Doc {
           }
         }
       }
-      if (newDoc?.parameters?.[pName]) {
-        newDoc.parameters[pName].push(parameter);
-        newDoc.parameters[pName] = [
-          ...new Set(newDoc.parameters[pName]),
-        ].filter((x) => x && Object.keys(x).length > 0);
+      if (newDoc?.parameters) {
+        newDoc.parameters.push(parameter);
+        newDoc.parameters = [...new Set(newDoc.parameters)].filter((x) => x);
       }
 
-      newDoc.children = children;
-      if (!newDoc?.children?.length) delete newDoc.children;
+      newDoc.elements = children;
+      if (!newDoc?.elements?.length) delete newDoc.elements;
       if (!newDoc?.parameters || !Object.keys(newDoc?.parameters)?.length)
         delete newDoc.parameters;
       // else console.log('newDoc.parameters is', newDoc.parameters);
     }
-    if (doc.kind === 'text' && typeof doc.value !== 'object') {
-      newDoc.value = doc.value;
+    let elements =
+      doc?.elements?.length && JSON.parse(JSON.stringify(doc?.elements));
+    if (typeof doc.value !== 'object') {
+      if (doc.kind === 'text') {
+        newDoc.value = doc.value;
+      }
+      if (
+        (doc.kind === 'name' || doc.kind === 'parameterName') &&
+        typeof doc.value !== 'object'
+      ) {
+        newDoc.name = doc.value;
+      }
+      if (doc.kind !== 'text' && doc.kind !== 'unknown') {
+        newDoc.parameters = [];
+        const value = doc.value;
+        const name = doc.name || 'unknown';
+        // const nElements = elements?.filter((x) => x?.name === name);
+        // elements = elements?.filter((x) => x?.name !== name);
+        const p: DocumentationEntry = { name, value };
+        if (elements?.length) p.elements = elements;
+        newDoc.parameters.push(p);
+        elements = [];
+        // console.log(
+        //   `newDoc.parameters is`,
+        //   newDoc.parameters[last],
+        //   'elements is',
+        //   elements
+        // );
+      }
     }
     if (
-      (doc.kind === 'name' || doc.kind === 'parameterName') &&
-      typeof doc.value !== 'object'
-    ) {
-      newDoc.name = doc.value;
-    }
-    if (doc.kind === 'parameter' && typeof doc.value !== 'object') {
-      newDoc.parameters = {};
-      const value = doc.value;
-      const name = doc.name || 'unknown';
-      newDoc.parameters[name] = [{ name, value }];
+      doc.kind !== 'parameter' &&
+      doc.kind !== 'parameterName' &&
+      doc.kind !== 'text' &&
+      doc.kind !== 'name'
+    )
+      newDoc.kind = doc.kind;
+    if (doc.id) newDoc.id = doc.id;
+    if (elements?.length) {
+      // console.log('doc.elements is', JSON.stringify(elements, null, 5));
+      newDoc.elements = elements.map((x) => this.toDocumentation.bind(this)(x));
     }
     // console.log('doc is', JSON.stringify(newDoc, null, 5));
     return newDoc;
@@ -860,55 +883,77 @@ class Doc {
     key?: string
   ): DocumentationEntry | undefined {
     if (!doc || !key) return doc;
-    // console.log('r was', doc);
+    console.log('r was', JSON.stringify(doc, null, 5), key);
     for (let index = 0; index < doc[key].length; index++) {
-      for (
-        let index2 = 0;
-        index2 < Object.keys(doc[key][index]).length;
-        index2++
-      ) {
-        const key2 = Object.keys(doc[key][index])[index2];
-        let found = doc[key]
-          .filter((_e, i) => i != index)
-          .findIndex(
-            (x) => x[key2] != undefined && doc[key][index][key2] != undefined
-          );
-        if (found > -1) {
-          if (index < found + 1) {
-            found = found + 1;
-          }
-          // console.log(
-          //   'r -',
-          //   doc[key][index],
-          //   doc[key][found],
-          //   key2,
-          //   index,
-          //   found
-          // );
-          doc[key][index][key2] = Array.isArray(doc[key][index][key2])
-            ? doc[key][index][key2]
-            : [doc[key][index][key2]];
-          doc[key][found][key2] = Array.isArray(doc[key][found][key2])
-            ? doc[key][found][key2]
-            : [doc[key][found][key2]];
-          doc[key][index][key2] = [
-            ...doc[key][index][key2],
-            ...doc[key][found][key2],
-          ];
-          delete doc[key][found][key2];
-          doc[key] = doc[key].filter((x) => Object.keys(x).length > 0);
-          // console.log('r +', doc[key], doc[key][index], doc[key][index][key2]);
+      const found = doc[key]
+        .filter((_e, i) => i != index)
+        .filter((x) => x.name === doc[key][index].name)
+        .map((x) => {
+          const x2 = JSON.parse(JSON.stringify(x));
+          delete x2.name;
+          return x2;
+        });
+      const toKill = doc[key]
+        .map((a, i) => {
+          const a2 = JSON.parse(JSON.stringify(a));
+          a2.index = i;
+          return a2;
+        })
+        .filter((_e, i) => i != index)
+        .filter((x) => x.name === doc[key][index].name)
+        .map((x) => x.index);
+      console.log('found is', found, 'toKill is', toKill);
+      if (found?.length) {
+        const name = doc[key][index].name;
+        const unnamed = JSON.parse(JSON.stringify(doc[key][index]));
+        delete unnamed.name;
+        doc[key][index] = {
+          name,
+          variations: [unnamed, ...found],
+        };
+        for (const kill of toKill) {
+          doc[key].splice(kill, 1);
+          index--;
         }
       }
     }
-    // console.log('r is', JSON.stringify(doc, null, 5));
+    console.log('r is', JSON.stringify(doc, null, 5));
   }
+
+  // rearrangeParents(doc?: DocumentationEntry) {
+  //   if (Array.isArray(doc?.parameters) && doc?.parameters?.length)
+  //     for (let index = 0; index < doc.parameters.length; index++) {
+  //       const parameter = doc.parameters[index];
+  //       const others = doc.parameters?.filter((_x, i) => i != index);
+  //       for (let index2 = 0; index2 < parameter.length; index2++) {
+  //         const element = parameter[index2];
+  //         const eParents = element?.elements.filter(
+  //           (x) => x.kind === 'left'
+  //         ) as DocumentationEntry[];
+  //         const foundParents = others?.filter(
+  //           (x) => eParents?.find((y) => y.name === x.name) //! use id
+  //         );
+  //         console.log('FOUND:', foundParents);
+  //         if (foundParents?.length) {
+  //           element.kind = 'child';
+  //           for (const foundParent of foundParents) {
+  //             foundParent.elements = foundParent.elements || [];
+  //             foundParent.elements.push(element);
+  //           }
+  //           parameter.splice(index2, 1);
+  //           index2--;
+  //         }
+  //       }
+  //     }
+  //   return doc;
+  // }
 
   reduceDocumentation(
     docs?: DocumentationEntry[]
   ): DocumentationEntry | undefined {
-    const newDoc: DocumentationEntry = {};
+    const newDoc: DocumentationEntry | undefined = {};
     if (!docs) return undefined;
+    console.log('rdocs was', JSON.stringify(docs, null, 5));
     for (const doc of docs) {
       for (const key in doc) {
         if (Object.prototype.hasOwnProperty.call(doc, key)) {
@@ -916,7 +961,7 @@ class Doc {
             newDoc[key] = Array.isArray(newDoc[key])
               ? newDoc[key]
               : [newDoc[key]];
-            newDoc[key].push(doc[key]);
+            newDoc[key].push(...[doc[key]].flat());
             this.reduceDocumentationElements.bind(this)(newDoc, key);
           } else if (doc[key]) {
             newDoc[key] = doc[key];
@@ -924,17 +969,24 @@ class Doc {
         }
       }
     }
+
+    // console.log('rdocs a is', JSON.stringify(newDoc, null, 5));
+    // newDoc = this.rearrangeParents.bind(this)(newDoc);
+    console.log('rdocs is', JSON.stringify(newDoc, null, 5));
     return newDoc;
   }
 
   serializeDocumentation(node?: Node) {
     if (node == undefined) return undefined;
+    // console.log('serializeDocumentation', node?.['id']);
     let symbol: ts.Symbol | undefined;
     try {
       symbol = this.checker?.getSymbolAtLocation?.(node);
+      if (symbol) symbol['id'] = symbol['id'] || node['id'];
     } catch (error) {
       symbol = node as unknown as ts.Symbol;
     }
+
     const comments = [
       ...new Set(
         [
@@ -950,7 +1002,12 @@ class Doc {
             .flat()
             .filter((a) => a),
           ...[symbol?.getJsDocTags?.()].flat().filter((a) => a),
-        ]?.map((doc) => this.toSimpleDocumentation.bind(this)(doc))
+        ]?.map((doc) =>
+          this.toSimpleDocumentation.bind(this)(
+            doc,
+            doc?.['id'] || node?.['id'] || symbol?.['id']
+          )
+        )
       ),
     ]?.filter((a) =>
       a && a?.value && typeof a?.value != 'object'
@@ -969,8 +1026,180 @@ class Doc {
       ?.map((x) => this.toDocumentation.bind(this)(x))
       .filter((x) => x && Object.keys(x).length > 0);
     // console.log('newComments', JSON.stringify(newComments, null, 5));
+    if (
+      !newComments?.length &&
+      node['name'] &&
+      typeof node['name'] == 'object'
+    ) {
+      node['name']['id'] =
+        node?.['name']?.['id'] || node?.['id'] || symbol?.['id'];
+      return this.serializeDocumentation.bind(this)(node['name']);
+    }
     return newComments;
   }
+
+  // refactorDocumentation(object: DocEntry): DocEntry {
+  //   let deleteDocumentation = false;
+  //   if (typeof object != 'string' && !isId(object) && object?.documentation) {
+  //     if (
+  //       typeof object?.documentation != 'string' &&
+  //       !isId(object?.documentation) &&
+  //       object?.documentation?.parameters
+  //     ) {
+  //       if (object?.parameters) {
+  //         const oP = object?.parameters?.map((p) =>
+  //           typeof p != 'string' && !isId(p) ? p?.name : p
+  //         );
+  //         const dP = object?.documentation?.parameters?.map((p) =>
+  //           typeof p != 'string' && !isId(p) ? p?.name : p
+  //         );
+  //         if (oP?.length === dP?.length) {
+  //           for (let index = 0; index < oP?.length; index++) {
+  //             if (dP.find((p) => p === oP[index]) == undefined) {
+  //               deleteDocumentation = true;
+  //               break;
+  //             }
+  //           }
+  //         } else deleteDocumentation = true;
+  //         for (
+  //           let index = 0;
+  //           index < object?.documentation?.parameters.length;
+  //           index++
+  //         ) {
+  //           const parameter = object?.documentation?.parameters[index];
+  //           let found = object?.parameters?.find((p) =>
+  //             typeof p != 'string' && !isId(p)
+  //               ? p?.name ===
+  //                 (typeof parameter != 'string' && !isId(parameter)
+  //                   ? parameter?.name
+  //                   : parameter)
+  //               : p ===
+  //                 (typeof parameter != 'string' && !isId(parameter)
+  //                   ? parameter?.name
+  //                   : parameter)
+  //           );
+  //           if (found) {
+  //             found = this.toObject(found);
+  //             found.text =
+  //               typeof parameter != 'string' && !isId(parameter)
+  //                 ? parameter?.text
+  //                 : parameter?.toString();
+  //             if (object.documentation.parameters && index) {
+  //               delete object.documentation.parameters[index];
+  //             }
+  //           }
+  //         }
+  //       } else deleteDocumentation = true;
+
+  //       if (deleteDocumentation) {
+  //         delete object.documentation;
+  //       } else {
+  //         object.documentation.parameters =
+  //           object?.documentation?.parameters?.filter?.((p) => p);
+  //         if (!object?.documentation?.parameters?.length)
+  //           delete object.documentation.parameters;
+  //         if (object.documentation.text) {
+  //           object.text = object.documentation.text;
+  //           delete object.documentation.text;
+  //         }
+  //         if (!Object.keys(object.documentation).length)
+  //           delete object.documentation;
+  //         if (!object.documentation) delete object.documentation;
+  //       }
+  //     }
+  //   }
+  //   return object;
+  // }
+
+  // refactorDocumentations(
+  //   current?: DocEntry | DocEntry[],
+  //   base?: DocEntry[],
+  //   parent?: DocEntry
+  // ): DocEntry | DocEntry[] {
+  //   if (!base) base = Array.isArray(current) ? current : [current];
+  //   if (Array.isArray(current)) {
+  //     for (let index = 0; index < current.length; index++) {
+  //       current[index] = this.toObject(current[index]);
+  //       for (const key in current[index] as BaseDocEntry) {
+  //         if (
+  //           Object.prototype.hasOwnProperty.call(current[index], key) &&
+  //           current?.[index]?.[key]
+  //         ) {
+  //           this.refactorDocumentations.bind(this)(
+  //             current[index]?.[key],
+  //             base,
+  //             current[index]
+  //           );
+  //         }
+  //       }
+  //     }
+  //   } else {
+  //     for (const key in current as BaseDocEntry) {
+  //       if (
+  //         Object.prototype.hasOwnProperty.call(current, key) &&
+  //         current?.[key] &&
+  //         (typeof current?.[key] === 'object' || Array.isArray(current?.[key]))
+  //       ) {
+  //         this.refactorDocumentations.bind(this)(current?.[key], base, current);
+  //       }
+  //     }
+
+  //     current = this.refactorDocumentation(current);
+
+  //     let clear = false;
+
+  //     if ((current as { of: Node })?.of) {
+  //       const of = (current as { of: BaseDocEntry[] })?.of?.map((o) => o?.name);
+  //       const nDoc = JSON.parse(JSON.stringify(current));
+  //       delete nDoc.of;
+  //       // console.log('nDoc', nDoc, of, base?.length);
+  //       for (let index = 0; index < of.length; index++) {
+  //         const name = of[index];
+  //         const found = base?.filter((b) => {
+  //           b = this.toObject(b);
+  //           // console.log('b?.name', b?.name, name);
+  //           return b?.name === name;
+  //         });
+  //         if (found?.length) {
+  //           clear = true;
+  //           // console.log('found', found);
+  //           for (let index2 = 0; index2 < found.length; index2++) {
+  //             found[index2] = this.toObject(found[index2]);
+  //             (found[index2] as BaseDocEntry).documentation = nDoc;
+  //           }
+  //           (current as { of: BaseDocEntry[] }).of = (
+  //             current as { of: BaseDocEntry[] }
+  //           )?.of?.filter((o) => o?.name !== name);
+  //         }
+  //       }
+  //       if (!(current as { of: BaseDocEntry[] }).of?.length && clear) {
+  //         delete (current as { of?: BaseDocEntry[] })?.of;
+  //         let toClear;
+  //         if (parent) {
+  //           toClear = base?.filter((b) => {
+  //             return (
+  //               (b as BaseDocEntry)?.id != undefined &&
+  //               (parent as BaseDocEntry)?.id != undefined &&
+  //               (b as BaseDocEntry)?.id === (parent as BaseDocEntry)?.id
+  //             );
+  //           });
+  //         } else {
+  //           current = undefined;
+  //         }
+  //         console.log('toClear', toClear, parent, base);
+  //         if (toClear?.length) {
+  //           console.log('toClear', toClear);
+  //           for (let index = 0; index < toClear.length; index++) {
+  //             delete (toClear[index] as BaseDocEntry)?.documentation;
+  //           }
+  //         } else if (parent) {
+  //           delete (parent as BaseDocEntry)?.documentation;
+  //         }
+  //       }
+  //     }
+  //   }
+  //   return current;
+  // }
 
   toObject(object?: DocEntry) {
     if (isId(object)) object = { id: object };
@@ -1166,169 +1395,6 @@ class Doc {
       );
     }
   }
-
-  // refactorDocumentation(object: DocEntry): DocEntry {
-  //   let deleteDocumentation = false;
-  //   if (typeof object != 'string' && !isId(object) && object?.documentation) {
-  //     if (
-  //       typeof object?.documentation != 'string' &&
-  //       !isId(object?.documentation) &&
-  //       object?.documentation?.parameters
-  //     ) {
-  //       if (object?.parameters) {
-  //         const oP = object?.parameters?.map((p) =>
-  //           typeof p != 'string' && !isId(p) ? p?.name : p
-  //         );
-  //         const dP = object?.documentation?.parameters?.map((p) =>
-  //           typeof p != 'string' && !isId(p) ? p?.name : p
-  //         );
-  //         if (oP?.length === dP?.length) {
-  //           for (let index = 0; index < oP?.length; index++) {
-  //             if (dP.find((p) => p === oP[index]) == undefined) {
-  //               deleteDocumentation = true;
-  //               break;
-  //             }
-  //           }
-  //         } else deleteDocumentation = true;
-  //         for (
-  //           let index = 0;
-  //           index < object?.documentation?.parameters.length;
-  //           index++
-  //         ) {
-  //           const parameter = object?.documentation?.parameters[index];
-  //           let found = object?.parameters?.find((p) =>
-  //             typeof p != 'string' && !isId(p)
-  //               ? p?.name ===
-  //                 (typeof parameter != 'string' && !isId(parameter)
-  //                   ? parameter?.name
-  //                   : parameter)
-  //               : p ===
-  //                 (typeof parameter != 'string' && !isId(parameter)
-  //                   ? parameter?.name
-  //                   : parameter)
-  //           );
-  //           if (found) {
-  //             found = this.toObject(found);
-  //             found.text =
-  //               typeof parameter != 'string' && !isId(parameter)
-  //                 ? parameter?.text
-  //                 : parameter?.toString();
-  //             if (object.documentation.parameters && index) {
-  //               delete object.documentation.parameters[index];
-  //             }
-  //           }
-  //         }
-  //       } else deleteDocumentation = true;
-
-  //       if (deleteDocumentation) {
-  //         delete object.documentation;
-  //       } else {
-  //         object.documentation.parameters =
-  //           object?.documentation?.parameters?.filter?.((p) => p);
-  //         if (!object?.documentation?.parameters?.length)
-  //           delete object.documentation.parameters;
-  //         if (object.documentation.text) {
-  //           object.text = object.documentation.text;
-  //           delete object.documentation.text;
-  //         }
-  //         if (!Object.keys(object.documentation).length)
-  //           delete object.documentation;
-  //         if (!object.documentation) delete object.documentation;
-  //       }
-  //     }
-  //   }
-  //   return object;
-  // }
-
-  // refactorDocumentations(
-  //   current?: DocEntry | DocEntry[],
-  //   base?: DocEntry[],
-  //   parent?: DocEntry
-  // ): DocEntry | DocEntry[] {
-  //   if (!base) base = Array.isArray(current) ? current : [current];
-  //   if (Array.isArray(current)) {
-  //     for (let index = 0; index < current.length; index++) {
-  //       current[index] = this.toObject(current[index]);
-  //       for (const key in current[index] as BaseDocEntry) {
-  //         if (
-  //           Object.prototype.hasOwnProperty.call(current[index], key) &&
-  //           current?.[index]?.[key]
-  //         ) {
-  //           this.refactorDocumentations.bind(this)(
-  //             current[index]?.[key],
-  //             base,
-  //             current[index]
-  //           );
-  //         }
-  //       }
-  //     }
-  //   } else {
-  //     for (const key in current as BaseDocEntry) {
-  //       if (
-  //         Object.prototype.hasOwnProperty.call(current, key) &&
-  //         current?.[key] &&
-  //         (typeof current?.[key] === 'object' || Array.isArray(current?.[key]))
-  //       ) {
-  //         this.refactorDocumentations.bind(this)(current?.[key], base, current);
-  //       }
-  //     }
-
-  //     current = this.refactorDocumentation(current);
-
-  //     let clear = false;
-
-  //     if ((current as { of: Node })?.of) {
-  //       const of = (current as { of: BaseDocEntry[] })?.of?.map((o) => o?.name);
-  //       const nDoc = JSON.parse(JSON.stringify(current));
-  //       delete nDoc.of;
-  //       // console.log('nDoc', nDoc, of, base?.length);
-  //       for (let index = 0; index < of.length; index++) {
-  //         const name = of[index];
-  //         const found = base?.filter((b) => {
-  //           b = this.toObject(b);
-  //           // console.log('b?.name', b?.name, name);
-  //           return b?.name === name;
-  //         });
-  //         if (found?.length) {
-  //           clear = true;
-  //           // console.log('found', found);
-  //           for (let index2 = 0; index2 < found.length; index2++) {
-  //             found[index2] = this.toObject(found[index2]);
-  //             (found[index2] as BaseDocEntry).documentation = nDoc;
-  //           }
-  //           (current as { of: BaseDocEntry[] }).of = (
-  //             current as { of: BaseDocEntry[] }
-  //           )?.of?.filter((o) => o?.name !== name);
-  //         }
-  //       }
-  //       if (!(current as { of: BaseDocEntry[] }).of?.length && clear) {
-  //         delete (current as { of?: BaseDocEntry[] })?.of;
-  //         let toClear;
-  //         if (parent) {
-  //           toClear = base?.filter((b) => {
-  //             return (
-  //               (b as BaseDocEntry)?.id != undefined &&
-  //               (parent as BaseDocEntry)?.id != undefined &&
-  //               (b as BaseDocEntry)?.id === (parent as BaseDocEntry)?.id
-  //             );
-  //           });
-  //         } else {
-  //           current = undefined;
-  //         }
-  //         console.log('toClear', toClear, parent, base);
-  //         if (toClear?.length) {
-  //           console.log('toClear', toClear);
-  //           for (let index = 0; index < toClear.length; index++) {
-  //             delete (toClear[index] as BaseDocEntry)?.documentation;
-  //           }
-  //         } else if (parent) {
-  //           delete (parent as BaseDocEntry)?.documentation;
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return current;
-  // }
 
   refactorLink(
     base: DocEntry[],
