@@ -734,7 +734,7 @@ class Doc {
   }
 
   toSimpleDocumentation(doc, id?: number | string): SimpleDocumentationEntry {
-    // console.log('simple doc was', doc);
+    // console.log('simple doc was', doc, id);
     let kind = doc?.kind
       ? SyntaxKind[doc?.kind] || doc?.kind
       : doc?.name
@@ -768,18 +768,27 @@ class Doc {
       // console.log('newDoc.name is', id, newDoc.name);
 
       const element = this.getDocumentationElement(newDoc.name);
-      newDoc.id = element.id;
-      newDoc.name = element.name;
-      newDoc.elements = element.elements;
+      if (element) {
+        newDoc.id = element.id;
+        newDoc.name = element.name;
+        newDoc.elements = element.elements;
+        if (!newDoc.elements?.length) {
+          // console.log('no newDoc.elements', id);
+          delete newDoc.elements;
+          if (newDoc.id == undefined) newDoc.id = doc.id || id;
+        }
+        if (newDoc.id == undefined) delete newDoc.id;
+        if (!newDoc.name) delete newDoc.name;
+      }
 
-      // console.log('simple doc is', JSON.stringify(newDoc, null, 5));
+      // console.log('simple doc is', JSON.stringify(newDoc, null, 5), id);
     }
 
     return newDoc;
   }
 
   toDocumentation(doc: SimpleDocumentationEntry): DocumentationEntry {
-    // console.log('doc was', JSON.stringify(doc, null, 5));
+    console.log('doc was', JSON.stringify(doc, null, 5));
     const newDoc: DocumentationEntry = {};
     if (Array.isArray(doc.value)) {
       let children = doc?.value?.map((x) => this.toDocumentation.bind(this)(x));
@@ -848,9 +857,11 @@ class Doc {
         newDoc.parameters = [];
         const value = doc.value;
         const name = doc.name || 'unknown';
+        const id = doc.id;
+        delete doc.id;
         // const nElements = elements?.filter((x) => x?.name === name);
         // elements = elements?.filter((x) => x?.name !== name);
-        const p: DocumentationEntry = { name, value };
+        const p: DocumentationEntry = { id, name, value };
         if (elements?.length) p.elements = elements;
         newDoc.parameters.push(p);
         elements = [];
@@ -874,7 +885,7 @@ class Doc {
       // console.log('doc.elements is', JSON.stringify(elements, null, 5));
       newDoc.elements = elements.map((x) => this.toDocumentation.bind(this)(x));
     }
-    // console.log('doc is', JSON.stringify(newDoc, null, 5));
+    console.log('doc is', JSON.stringify(newDoc, null, 5));
     return newDoc;
   }
 
@@ -883,7 +894,7 @@ class Doc {
     key?: string
   ): DocumentationEntry | undefined {
     if (!doc || !key) return doc;
-    console.log('r was', JSON.stringify(doc, null, 5), key);
+    // console.log('r was', JSON.stringify(doc, null, 5), key);
     for (let index = 0; index < doc[key].length; index++) {
       const found = doc[key]
         .filter((_e, i) => i != index)
@@ -902,7 +913,7 @@ class Doc {
         .filter((_e, i) => i != index)
         .filter((x) => x.name === doc[key][index].name)
         .map((x) => x.index);
-      console.log('found is', found, 'toKill is', toKill);
+      // console.log('found is', found, 'toKill is', toKill);
       if (found?.length) {
         const name = doc[key][index].name;
         const unnamed = JSON.parse(JSON.stringify(doc[key][index]));
@@ -917,43 +928,42 @@ class Doc {
         }
       }
     }
-    console.log('r is', JSON.stringify(doc, null, 5));
+    // console.log('r is', JSON.stringify(doc, null, 5));
   }
 
-  // rearrangeParents(doc?: DocumentationEntry) {
-  //   if (Array.isArray(doc?.parameters) && doc?.parameters?.length)
-  //     for (let index = 0; index < doc.parameters.length; index++) {
-  //       const parameter = doc.parameters[index];
-  //       const others = doc.parameters?.filter((_x, i) => i != index);
-  //       for (let index2 = 0; index2 < parameter.length; index2++) {
-  //         const element = parameter[index2];
-  //         const eParents = element?.elements.filter(
-  //           (x) => x.kind === 'left'
-  //         ) as DocumentationEntry[];
-  //         const foundParents = others?.filter(
-  //           (x) => eParents?.find((y) => y.name === x.name) //! use id
-  //         );
-  //         console.log('FOUND:', foundParents);
-  //         if (foundParents?.length) {
-  //           element.kind = 'child';
-  //           for (const foundParent of foundParents) {
-  //             foundParent.elements = foundParent.elements || [];
-  //             foundParent.elements.push(element);
-  //           }
-  //           parameter.splice(index2, 1);
-  //           index2--;
-  //         }
-  //       }
-  //     }
-  //   return doc;
-  // }
+  rearrangeParents(doc?: DocumentationEntry) {
+    // console.log('doc was', JSON.stringify(doc, null, 5));
+    if (Array.isArray(doc?.parameters) && doc?.parameters?.length)
+      for (let index = 0; index < doc.parameters.length; index++) {
+        const parameter = doc.parameters[index];
+        const others = doc.parameters?.filter((_x, i) => i != index);
+        const parameterParents = parameter?.elements?.filter(
+          (x) => x.kind === 'left'
+        ) as DocumentationEntry[];
+        const foundParents = others?.filter(
+          (x) => parameterParents?.find((y) => y.name === x.name) //! use id
+        );
+        // console.log('FOUND:', foundParents);
+        if (foundParents?.length) {
+          parameter.kind = 'child';
+          for (const foundParent of foundParents) {
+            foundParent.elements = foundParent.elements || [];
+            foundParent.elements.push(parameter);
+          }
+          doc.parameters.splice(index, 1);
+          index--;
+        }
+      }
+    // console.log('doc is', JSON.stringify(doc, null, 5));
+    return doc;
+  }
 
   reduceDocumentation(
     docs?: DocumentationEntry[]
   ): DocumentationEntry | undefined {
-    const newDoc: DocumentationEntry | undefined = {};
+    let newDoc: DocumentationEntry | undefined = {};
     if (!docs) return undefined;
-    console.log('rdocs was', JSON.stringify(docs, null, 5));
+    // console.log('rdocs was', JSON.stringify(docs, null, 5));
     for (const doc of docs) {
       for (const key in doc) {
         if (Object.prototype.hasOwnProperty.call(doc, key)) {
@@ -971,8 +981,8 @@ class Doc {
     }
 
     // console.log('rdocs a is', JSON.stringify(newDoc, null, 5));
-    // newDoc = this.rearrangeParents.bind(this)(newDoc);
-    console.log('rdocs is', JSON.stringify(newDoc, null, 5));
+    newDoc = this.rearrangeParents.bind(this)(newDoc);
+    // console.log('rdocs is', JSON.stringify(newDoc, null, 5));
     return newDoc;
   }
 
