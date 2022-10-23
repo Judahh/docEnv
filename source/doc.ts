@@ -567,7 +567,7 @@ class Doc {
     //   console.log('entry is', node);
     // }
 
-    // entry = this.refactorDocumentations.bind(this)(entry, base) as BaseDocEntry;
+    entry = this.refactorDocumentations.bind(this)(entry, base) as BaseDocEntry;
 
     entry.flow = this.linkObject.bind(this)(entry, base, 'flow');
     entry.initializer = this.linkObject.bind(this)(entry, base, 'initializer');
@@ -1048,168 +1048,133 @@ class Doc {
     return newComments;
   }
 
-  // refactorDocumentation(object: DocEntry): DocEntry {
-  //   let deleteDocumentation = false;
-  //   if (typeof object != 'string' && !isId(object) && object?.documentation) {
-  //     if (
-  //       typeof object?.documentation != 'string' &&
-  //       !isId(object?.documentation) &&
-  //       object?.documentation?.parameters
-  //     ) {
-  //       if (object?.parameters) {
-  //         const oP = object?.parameters?.map((p) =>
-  //           typeof p != 'string' && !isId(p) ? p?.name : p
-  //         );
-  //         const dP = object?.documentation?.parameters?.map((p) =>
-  //           typeof p != 'string' && !isId(p) ? p?.name : p
-  //         );
-  //         if (oP?.length === dP?.length) {
-  //           for (let index = 0; index < oP?.length; index++) {
-  //             if (dP.find((p) => p === oP[index]) == undefined) {
-  //               deleteDocumentation = true;
-  //               break;
-  //             }
-  //           }
-  //         } else deleteDocumentation = true;
-  //         for (
-  //           let index = 0;
-  //           index < object?.documentation?.parameters.length;
-  //           index++
-  //         ) {
-  //           const parameter = object?.documentation?.parameters[index];
-  //           let found = object?.parameters?.find((p) =>
-  //             typeof p != 'string' && !isId(p)
-  //               ? p?.name ===
-  //                 (typeof parameter != 'string' && !isId(parameter)
-  //                   ? parameter?.name
-  //                   : parameter)
-  //               : p ===
-  //                 (typeof parameter != 'string' && !isId(parameter)
-  //                   ? parameter?.name
-  //                   : parameter)
-  //           );
-  //           if (found) {
-  //             found = this.toObject(found);
-  //             found.text =
-  //               typeof parameter != 'string' && !isId(parameter)
-  //                 ? parameter?.text
-  //                 : parameter?.toString();
-  //             if (object.documentation.parameters && index) {
-  //               delete object.documentation.parameters[index];
-  //             }
-  //           }
-  //         }
-  //       } else deleteDocumentation = true;
+  findElementFromDoc(
+    found: any[],
+    base?: DocEntry[],
+    key = 'id',
+    of?: any,
+    name?: string | number | boolean,
+    justIndexes?: boolean
+  ) {
+    found.push(
+      ...(
+        base
+          ?.map((e, index) =>
+            typeof e == 'object' && justIndexes ? { ...e, index } : e
+          )
+          .filter(
+            (e) =>
+              typeof e == 'object' &&
+              (e as BaseDocEntry)[key] != undefined &&
+              (e as BaseDocEntry)[key] == of[key]
+          ) || []
+      ).map((e) => {
+        if (justIndexes && e == 'object')
+          return (e as unknown as { index: number }).index;
+        if (typeof e == 'object' && name)
+          return {
+            ...e,
+            name,
+          } as BaseDocEntry;
+        else return e as BaseDocEntry;
+      })
+    );
+  }
 
-  //       if (deleteDocumentation) {
-  //         delete object.documentation;
-  //       } else {
-  //         object.documentation.parameters =
-  //           object?.documentation?.parameters?.filter?.((p) => p);
-  //         if (!object?.documentation?.parameters?.length)
-  //           delete object.documentation.parameters;
-  //         if (object.documentation.text) {
-  //           object.text = object.documentation.text;
-  //           delete object.documentation.text;
-  //         }
-  //         if (!Object.keys(object.documentation).length)
-  //           delete object.documentation;
-  //         if (!object.documentation) delete object.documentation;
-  //       }
-  //     }
-  //   }
-  //   return object;
-  // }
+  refactorDocumentation(object: DocEntry, base?: DocEntry[]): DocEntry {
+    if (
+      typeof object === 'object' &&
+      (object as BaseDocEntry).documentation &&
+      (object as BaseDocEntry).documentation?.parameters?.length
+    ) {
+      const parameters = (object as BaseDocEntry).documentation?.parameters;
+      const ofs = parameters?.filter((parameter) => parameter.name === 'of');
+      const ofsI = parameters
+        ?.map((p, index) => ({ ...p, index }))
+        ?.filter((parameter) => parameter.name === 'of')
+        ?.map((p) => p.index);
+      const ofsToKill: number[] = [];
+      if (ofs?.length) {
+        for (let index = 0; index < ofs.length; index++) {
+          const of = ofs[index];
+          const found: BaseDocEntry[] = [];
+          let toKill = false;
+          if (of.id) {
+            this.findElementFromDoc(found, base, 'id', of);
+            if (found.length) toKill = true;
+          } else if (of.name) {
+            this.findElementFromDoc(found, base, 'name', of);
+            if (found.length) toKill = true;
+          } else if (of.variations?.length) {
+            for (let index2 = 0; index2 < of.variations.length; index2++) {
+              const variation = of.variations[index2];
+              let toKill2 = false;
+              if (variation.id) {
+                this.findElementFromDoc(
+                  found,
+                  base,
+                  'id',
+                  of,
+                  variation.name || of.name
+                );
+                toKill2 = true;
+              } else if (variation.name) {
+                this.findElementFromDoc(
+                  found,
+                  base,
+                  'name',
+                  of,
+                  variation.name || of.name
+                );
+                toKill2 = true;
+              }
+              if (toKill2) {
+                of.variations?.splice(index2, 1);
+                index2--;
+              }
+            }
+          }
+          if (toKill && ofsI) {
+            ofsToKill.push(ofsI?.[index]);
+          }
+        }
+        if (ofsToKill.length) {
+          ofsToKill.forEach((index) => {
+            parameters?.splice(index, 1);
+          });
+          if ((object as BaseDocEntry)?.documentation != undefined) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            (object as BaseDocEntry).documentation.parameters = parameters;
+          }
+        }
+      }
+    }
+    return object;
+  }
 
-  // refactorDocumentations(
-  //   current?: DocEntry | DocEntry[],
-  //   base?: DocEntry[],
-  //   parent?: DocEntry
-  // ): DocEntry | DocEntry[] {
-  //   if (!base) base = Array.isArray(current) ? current : [current];
-  //   if (Array.isArray(current)) {
-  //     for (let index = 0; index < current.length; index++) {
-  //       current[index] = this.toObject(current[index]);
-  //       for (const key in current[index] as BaseDocEntry) {
-  //         if (
-  //           Object.prototype.hasOwnProperty.call(current[index], key) &&
-  //           current?.[index]?.[key]
-  //         ) {
-  //           this.refactorDocumentations.bind(this)(
-  //             current[index]?.[key],
-  //             base,
-  //             current[index]
-  //           );
-  //         }
-  //       }
-  //     }
-  //   } else {
-  //     for (const key in current as BaseDocEntry) {
-  //       if (
-  //         Object.prototype.hasOwnProperty.call(current, key) &&
-  //         current?.[key] &&
-  //         (typeof current?.[key] === 'object' || Array.isArray(current?.[key]))
-  //       ) {
-  //         this.refactorDocumentations.bind(this)(current?.[key], base, current);
-  //       }
-  //     }
-
-  //     current = this.refactorDocumentation(current);
-
-  //     let clear = false;
-
-  //     if ((current as { of: Node })?.of) {
-  //       const of = (current as { of: BaseDocEntry[] })?.of?.map((o) => o?.name);
-  //       const nDoc = JSON.parse(JSON.stringify(current));
-  //       delete nDoc.of;
-  //       // console.log('nDoc', nDoc, of, base?.length);
-  //       for (let index = 0; index < of.length; index++) {
-  //         const name = of[index];
-  //         const found = base?.filter((b) => {
-  //           b = this.toObject(b);
-  //           // console.log('b?.name', b?.name, name);
-  //           return b?.name === name;
-  //         });
-  //         if (found?.length) {
-  //           clear = true;
-  //           // console.log('found', found);
-  //           for (let index2 = 0; index2 < found.length; index2++) {
-  //             found[index2] = this.toObject(found[index2]);
-  //             (found[index2] as BaseDocEntry).documentation = nDoc;
-  //           }
-  //           (current as { of: BaseDocEntry[] }).of = (
-  //             current as { of: BaseDocEntry[] }
-  //           )?.of?.filter((o) => o?.name !== name);
-  //         }
-  //       }
-  //       if (!(current as { of: BaseDocEntry[] }).of?.length && clear) {
-  //         delete (current as { of?: BaseDocEntry[] })?.of;
-  //         let toClear;
-  //         if (parent) {
-  //           toClear = base?.filter((b) => {
-  //             return (
-  //               (b as BaseDocEntry)?.id != undefined &&
-  //               (parent as BaseDocEntry)?.id != undefined &&
-  //               (b as BaseDocEntry)?.id === (parent as BaseDocEntry)?.id
-  //             );
-  //           });
-  //         } else {
-  //           current = undefined;
-  //         }
-  //         console.log('toClear', toClear, parent, base);
-  //         if (toClear?.length) {
-  //           console.log('toClear', toClear);
-  //           for (let index = 0; index < toClear.length; index++) {
-  //             delete (toClear[index] as BaseDocEntry)?.documentation;
-  //           }
-  //         } else if (parent) {
-  //           delete (parent as BaseDocEntry)?.documentation;
-  //         }
-  //       }
-  //     }
-  //   }
-  //   return current;
-  // }
+  refactorDocumentations(
+    current?: DocEntry | DocEntry[],
+    base?: DocEntry[]
+  ): DocEntry | DocEntry[] {
+    if (!base) base = Array.isArray(current) ? current : [current];
+    if (Array.isArray(current))
+      for (let index = 0; index < current.length; index++) {
+        current[index] = this.toObject(current[index]);
+        for (const key in current[index] as BaseDocEntry) {
+          if (
+            Object.prototype.hasOwnProperty.call(current[index], key) &&
+            current?.[index]?.[key]
+          ) {
+            this.refactorDocumentations.bind(this)(current[index]?.[key], base);
+          }
+        }
+      }
+    else {
+      current = this.refactorDocumentation(current);
+    }
+    return current;
+  }
 
   toObject(object?: DocEntry) {
     if (isId(object)) object = { id: object };

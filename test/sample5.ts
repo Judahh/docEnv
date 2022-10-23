@@ -1,3 +1,5 @@
+const anError3 = new Error();
+
 const a = true;
 /**
  * SAMPLE B
@@ -31,4 +33,4 @@ const d = (input) => {
   return input;
 };
 
-export { a, b, c, d };
+export { a, b, c, d, anError3 };
