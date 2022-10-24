@@ -1049,36 +1049,48 @@ class Doc {
   }
 
   findElementFromDoc(
-    found: any[],
     base?: DocEntry[],
     key = 'id',
     of?: any,
-    name?: string | number | boolean,
-    justIndexes?: boolean
+    documentation?: DocumentationEntry
   ) {
-    found.push(
-      ...(
-        base
-          ?.map((e, index) =>
-            typeof e == 'object' && justIndexes ? { ...e, index } : e
-          )
-          .filter(
-            (e) =>
-              typeof e == 'object' &&
-              (e as BaseDocEntry)[key] != undefined &&
-              (e as BaseDocEntry)[key] == of[key]
-          ) || []
-      ).map((e) => {
-        if (justIndexes && e == 'object')
-          return (e as unknown as { index: number }).index;
-        if (typeof e == 'object' && name)
-          return {
-            ...e,
-            name,
-          } as BaseDocEntry;
-        else return e as BaseDocEntry;
-      })
+    const isValue = of.value != undefined;
+    const seek = isValue ? [of.value] : of.variations?.map((x) => x.value);
+    // console.log('findElementFromDoc', of, seek, documentation, base?.length);
+    const found =
+      base?.filter((e) => {
+        // console.log('findElementFromDoc', e, seek);
+        return (
+          typeof e == 'object' && e[key] != undefined && seek.includes(e[key])
+        );
+      }) || [];
+    if (!found?.length) {
+      for (const e of seek) {
+        const newElement: DocEntry = {
+          id: newId(),
+          name: e,
+        };
+        base?.push(newElement);
+        found?.push(newElement);
+      }
+    }
+    // console.log('found', found);
+    const currentDocumetation = JSON.parse(JSON.stringify(documentation));
+    currentDocumetation.parameters = currentDocumetation.parameters?.filter(
+      (x) => x.name != 'of'
     );
+    for (const f of found) {
+      const indexes = base
+        ?.map((b, index) => ({ id: (b as BaseDocEntry).id || b, index }))
+        ?.filter((x) => x.id != undefined && x.id == (f as BaseDocEntry).id)
+        ?.map((x) => x.index);
+      if (base?.length && indexes?.length) {
+        for (const index of indexes) {
+          (base[index] as BaseDocEntry).documentation = currentDocumetation;
+        }
+      }
+    }
+    return base;
   }
 
   refactorDocumentation(object: DocEntry, base?: DocEntry[]): DocEntry {
@@ -1087,67 +1099,20 @@ class Doc {
       (object as BaseDocEntry).documentation &&
       (object as BaseDocEntry).documentation?.parameters?.length
     ) {
-      const parameters = (object as BaseDocEntry).documentation?.parameters;
+      const documentation = (object as BaseDocEntry).documentation;
+      const parameters = documentation?.parameters;
       const ofs = parameters?.filter((parameter) => parameter.name === 'of');
-      const ofsI = parameters
-        ?.map((p, index) => ({ ...p, index }))
-        ?.filter((parameter) => parameter.name === 'of')
-        ?.map((p) => p.index);
-      const ofsToKill: number[] = [];
       if (ofs?.length) {
         for (let index = 0; index < ofs.length; index++) {
           const of = ofs[index];
-          const found: BaseDocEntry[] = [];
-          let toKill = false;
+          // console.log('of is', of);
           if (of.id) {
-            this.findElementFromDoc(found, base, 'id', of);
-            if (found.length) toKill = true;
+            this.findElementFromDoc(base, 'id', of, documentation);
           } else if (of.name) {
-            this.findElementFromDoc(found, base, 'name', of);
-            if (found.length) toKill = true;
-          } else if (of.variations?.length) {
-            for (let index2 = 0; index2 < of.variations.length; index2++) {
-              const variation = of.variations[index2];
-              let toKill2 = false;
-              if (variation.id) {
-                this.findElementFromDoc(
-                  found,
-                  base,
-                  'id',
-                  of,
-                  variation.name || of.name
-                );
-                toKill2 = true;
-              } else if (variation.name) {
-                this.findElementFromDoc(
-                  found,
-                  base,
-                  'name',
-                  of,
-                  variation.name || of.name
-                );
-                toKill2 = true;
-              }
-              if (toKill2) {
-                of.variations?.splice(index2, 1);
-                index2--;
-              }
-            }
-          }
-          if (toKill && ofsI) {
-            ofsToKill.push(ofsI?.[index]);
+            this.findElementFromDoc(base, 'name', of, documentation);
           }
         }
-        if (ofsToKill.length) {
-          ofsToKill.forEach((index) => {
-            parameters?.splice(index, 1);
-          });
-          if ((object as BaseDocEntry)?.documentation != undefined) {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            (object as BaseDocEntry).documentation.parameters = parameters;
-          }
-        }
+        delete (object as BaseDocEntry).documentation;
       }
     }
     return object;
@@ -1171,7 +1136,7 @@ class Doc {
         }
       }
     else {
-      current = this.refactorDocumentation(current);
+      current = this.refactorDocumentation(current, base);
     }
     return current;
   }
