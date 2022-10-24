@@ -1,5 +1,5 @@
 // import _ from 'lodash'; //use _.isEqual(objectOne, objectTwo); // to compare objects
-import { flatMap } from 'lodash';
+// import { flatMap } from 'lodash';
 import { mongo, ObjectId } from 'mongoose';
 
 import ts, {
@@ -482,6 +482,10 @@ class Doc {
 
     if (name == undefined && typeof declarations?.[0] == 'object') {
       name = (declarations?.[0] as BaseDocEntry)?.name;
+    }
+
+    if (name == undefined && code.replace(/\s/g, '') == code) {
+      name = code;
     }
 
     const _extends = (
@@ -1073,8 +1077,10 @@ class Doc {
         base?.push(newElement);
         found?.push(newElement);
       }
+      // console.log('not found', found);
+    } else {
+      // console.log('found', found);
     }
-    // console.log('found', found);
     const currentDocumetation = JSON.parse(JSON.stringify(documentation));
     currentDocumetation.parameters = currentDocumetation.parameters?.filter(
       (x) => x.name != 'of'
