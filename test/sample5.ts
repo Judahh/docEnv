@@ -33,4 +33,8 @@ const d = (input) => {
   return input;
 };
 
-export { a, b, c, d, anError3 };
+const someWeiredVariable = 1;
+
+const someWeiredFunction = () => 0;
+
+export { a, b, c, d, anError3, someWeiredFunction, someWeiredVariable };

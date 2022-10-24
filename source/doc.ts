@@ -1100,25 +1100,36 @@ class Doc {
   }
 
   refactorDocumentation(object: DocEntry, base?: DocEntry[]): DocEntry {
-    if (
-      typeof object === 'object' &&
-      (object as BaseDocEntry).documentation &&
-      (object as BaseDocEntry).documentation?.parameters?.length
-    ) {
-      const documentation = (object as BaseDocEntry).documentation;
-      const parameters = documentation?.parameters;
-      const ofs = parameters?.filter((parameter) => parameter.name === 'of');
-      if (ofs?.length) {
-        for (let index = 0; index < ofs.length; index++) {
-          const of = ofs[index];
-          // console.log('of is', of);
-          if (of.id) {
-            this.findElementFromDoc(base, 'id', of, documentation);
-          } else if (of.name) {
-            this.findElementFromDoc(base, 'name', of, documentation);
+    if (typeof object === 'object') {
+      if ((object as BaseDocEntry).documentation) {
+        if ((object as BaseDocEntry).documentation?.parameters?.length) {
+          const documentation = (object as BaseDocEntry).documentation;
+          const parameters = documentation?.parameters;
+          const ofs = parameters?.filter(
+            (parameter) => parameter.name === 'of'
+          );
+          if (ofs?.length) {
+            for (let index = 0; index < ofs.length; index++) {
+              const of = ofs[index];
+              // console.log('of is', of);
+              if (of.id) {
+                this.findElementFromDoc(base, 'id', of, documentation);
+              } else if (of.name) {
+                this.findElementFromDoc(base, 'name', of, documentation);
+              }
+            }
+            delete (object as BaseDocEntry).documentation;
           }
         }
-        delete (object as BaseDocEntry).documentation;
+      } else if ((object as BaseDocEntry)?.name) {
+        const text = (object as BaseDocEntry)?.name?.replace(/([A-Z])/g, ' $1');
+        const finalText = text
+          ? text?.charAt(0)?.toUpperCase() + text?.slice(1)
+          : undefined;
+        if (finalText)
+          (object as BaseDocEntry).documentation = {
+            value: finalText,
+          };
       }
     }
     return object;
