@@ -1,5 +1,5 @@
 import { Generator } from '../../source/generator';
-import { DocAPIGenerator } from '../../source/docAPIGenerator';
+// import { DocAPIGenerator } from '../../source/docAPIGenerator';
 import { BaseDocEntry, Doc } from '../../source/doc';
 
 // const gen0 = {

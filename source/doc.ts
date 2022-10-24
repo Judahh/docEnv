@@ -910,7 +910,9 @@ class Doc {
         });
       const toKill = doc[key]
         .map((a, i) => {
-          const a2 = JSON.parse(JSON.stringify(a));
+          let a2 = JSON.parse(JSON.stringify(a));
+          console.log('i is', i, a2);
+          if (typeof a2 != 'object') a2 = { value: a2, name: a2 };
           a2.index = i;
           return a2;
         })
