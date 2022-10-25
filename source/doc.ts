@@ -571,6 +571,13 @@ class Doc {
     //   console.log('entry is', node);
     // }
 
+    if (
+      code ==
+      'BaseService<\n  {\n    token?: string;\n    key?: string;\n    name?: string;\n    levelId?: number;\n    level?: string;\n    /**\n     * Test of D0\n     */\n    d0?: string;\n  },\n  {\n    /**\n     * Token of A\n     */\n    token?: string;\n    /**\n     * Key of A\n     */\n    key?: string;\n    name?: string;\n    levelId?: number;\n    level?: string;\n    d1?: string;\n  },\n  {\n    token: string;\n    key?: string;\n    /**\n     * Name of A\n     */\n    name?: string;\n    levelId?: number;\n    level?: string;\n    d2?: string;\n  }\n>'
+    ) {
+      console.log('entry is', JSON.stringify(entry, null, 5), node);
+    }
+
     entry = this.refactorDocumentations.bind(this)(entry, base) as BaseDocEntry;
 
     entry.flow = this.linkObject.bind(this)(entry, base, 'flow');
@@ -911,7 +918,7 @@ class Doc {
       const toKill = doc[key]
         .map((a, i) => {
           let a2 = JSON.parse(JSON.stringify(a));
-          console.log('i is', i, a2);
+          // console.log('i is', i, a2);
           if (typeof a2 != 'object') a2 = { value: a2, name: a2 };
           a2.index = i;
           return a2;
@@ -1125,12 +1132,20 @@ class Doc {
         }
       } else if ((object as BaseDocEntry)?.name) {
         const text = (object as BaseDocEntry)?.name?.replace(/([A-Z])/g, ' $1');
-        const finalText = text
+        let finalText = text
           ? text?.charAt(0)?.toUpperCase() + text?.slice(1)
           : undefined;
+        const isInterface = (object as BaseDocEntry)?.kind
+          ?.toString()
+          .toLowerCase()
+          ?.includes('interface');
+        finalText = finalText?.trim();
+        finalText = isInterface
+          ? finalText?.replace('I ', 'Interface ')
+          : finalText;
         if (finalText)
           (object as BaseDocEntry).documentation = {
-            value: finalText,
+            value: finalText.trim(),
           };
       }
     }
