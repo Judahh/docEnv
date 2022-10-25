@@ -520,11 +520,18 @@ class Doc {
       this.serializeNode.bind(this)(value, base, depth - 1)
     );
 
-    const _arguments = (
-      node as unknown as { arguments: Node[] }
-    )?.arguments?.map((argument: Node | undefined) => {
-      return this.serializeNode.bind(this)(argument, base, depth - 1);
-    });
+    const _arguments = [
+      ...((node as unknown as { arguments: Node[] })?.arguments?.map(
+        (argument: Node | undefined) => {
+          return this.serializeNode.bind(this)(argument, base, depth - 1);
+        }
+      ) || []),
+      ...((node as unknown as { typeArguments: Node[] })?.typeArguments?.map(
+        (argument: Node | undefined) => {
+          return this.serializeNode.bind(this)(argument, base, depth - 1);
+        }
+      ) || []),
+    ];
 
     if (SyntaxKind[node.kind] === 'Identifier' && declarations == undefined) {
       const symbol = this.checker?.getSymbolAtLocation?.(node);
