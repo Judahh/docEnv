@@ -578,12 +578,12 @@ class Doc {
     //   console.log('entry is', node);
     // }
 
-    if (
-      code ==
-      'BaseService<\n  {\n    token?: string;\n    key?: string;\n    name?: string;\n    levelId?: number;\n    level?: string;\n    /**\n     * Test of D0\n     */\n    d0?: string;\n  },\n  {\n    /**\n     * Token of A\n     */\n    token?: string;\n    /**\n     * Key of A\n     */\n    key?: string;\n    name?: string;\n    levelId?: number;\n    level?: string;\n    d1?: string;\n  },\n  {\n    token: string;\n    key?: string;\n    /**\n     * Name of A\n     */\n    name?: string;\n    levelId?: number;\n    level?: string;\n    d2?: string;\n  }\n>'
-    ) {
-      console.log('entry is', JSON.stringify(entry, null, 5), node);
-    }
+    // if (
+    //   code ==
+    //   'BaseService<\n  {\n    token?: string;\n    key?: string;\n    name?: string;\n    levelId?: number;\n    level?: string;\n    /**\n     * Test of D0\n     */\n    d0?: string;\n  },\n  {\n    /**\n     * Token of A\n     */\n    token?: string;\n    /**\n     * Key of A\n     */\n    key?: string;\n    name?: string;\n    levelId?: number;\n    level?: string;\n    d1?: string;\n  },\n  {\n    token: string;\n    key?: string;\n    /**\n     * Name of A\n     */\n    name?: string;\n    levelId?: number;\n    level?: string;\n    d2?: string;\n  }\n>'
+    // ) {
+    //   console.log('entry is', JSON.stringify(entry, null, 5), node);
+    // }
 
     entry = this.refactorDocumentations.bind(this)(entry, base) as BaseDocEntry;
 
